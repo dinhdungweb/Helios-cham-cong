@@ -1,0 +1,10 @@
+bin/
+obj/
+.vs/
+.dotnet/
+dotnet-install.ps1
+publish/
+*.user
+*.suo
+*.log
+TestResults/
