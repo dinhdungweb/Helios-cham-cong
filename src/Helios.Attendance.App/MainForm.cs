@@ -13,6 +13,8 @@ public sealed class MainForm : Form
     private static readonly Color StatusReadyColor = Color.SeaGreen;
     private static readonly Color StatusBusyColor = Color.DarkOrange;
     private static readonly Color StatusErrorColor = Color.Firebrick;
+    private static readonly Color PrimaryBlue = Color.FromArgb(45, 124, 190);
+    private static readonly Color MenuBorderColor = Color.FromArgb(205, 205, 205);
 
     private readonly AttendanceSyncStore _store = new();
     private readonly IAttendanceDeviceClient _deviceClient = new DeviceTypeAttendanceDeviceClient();
@@ -20,6 +22,7 @@ public sealed class MainForm : Form
 
     private readonly ToolStripStatusLabel _statusText = new();
     private readonly TabControl _tabs = new() { Dock = DockStyle.Fill };
+    private readonly List<Button> _menuButtons = [];
 
     private readonly Label _serviceStatusValue = ValueLabel();
     private readonly Label _apiStatusValue = ValueLabel();
@@ -39,6 +42,8 @@ public sealed class MainForm : Form
     };
 
     private readonly DataGridView _devicesGrid = Grid();
+    private readonly DataGridView _homeGrid = Grid();
+    private readonly TextBox _homeSearchText = new();
     private readonly TextBox _deviceIdText = new();
     private readonly TextBox _deviceNameText = new();
     private readonly TextBox _storeCodeText = new();
@@ -93,6 +98,17 @@ public sealed class MainForm : Form
     private readonly DataGridView _historyGrid = Grid();
     private readonly DataGridView _pendingGrid = Grid();
     private readonly DataGridView _errorsGrid = Grid();
+    private readonly TextBox _searchEmployeeText = new();
+    private readonly DateTimePicker _searchFromDate = new()
+    {
+        Format = DateTimePickerFormat.Custom,
+        CustomFormat = "dd/MM/yyyy"
+    };
+    private readonly DateTimePicker _searchToDate = new()
+    {
+        Format = DateTimePickerFormat.Custom,
+        CustomFormat = "dd/MM/yyyy"
+    };
 
     private bool _loadingDevices;
     private bool _serviceInstallPromptShown;
@@ -131,91 +147,203 @@ public sealed class MainForm : Form
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            RowCount = 2,
+            RowCount = 4,
             ColumnCount = 1
         };
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 96));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        ConfigurePageHost();
 
         _tabs.TabPages.Add(BuildOverviewTab());
         _tabs.TabPages.Add(BuildDevicesTab());
-        _tabs.TabPages.Add(BuildApiTab());
-        _tabs.TabPages.Add(BuildHistoryTab());
         _tabs.TabPages.Add(BuildPendingTab());
+        _tabs.TabPages.Add(BuildHistoryTab());
+        _tabs.TabPages.Add(BuildApiTab());
         _tabs.TabPages.Add(BuildErrorsTab());
+        _tabs.SelectedIndexChanged += (_, _) => UpdateMenuState();
 
         var statusStrip = new StatusStrip();
         statusStrip.Items.Add(_statusText);
 
-        root.Controls.Add(_tabs, 0, 0);
-        root.Controls.Add(statusStrip, 0, 1);
+        root.Controls.Add(BuildTopNavigation(), 0, 0);
+        root.Controls.Add(_tabs, 0, 1);
+        root.Controls.Add(BuildFooter(), 0, 2);
+        root.Controls.Add(statusStrip, 0, 3);
         Controls.Add(root);
+        UpdateMenuState();
+    }
+
+    private void ConfigurePageHost()
+    {
+        _tabs.Appearance = TabAppearance.FlatButtons;
+        _tabs.ItemSize = new Size(0, 1);
+        _tabs.SizeMode = TabSizeMode.Fixed;
+        _tabs.Padding = new Point(0, 0);
+    }
+
+    private Control BuildTopNavigation()
+    {
+        var outer = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2,
+            Padding = new Padding(14, 8, 10, 8),
+            BackColor = Color.White
+        };
+        outer.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        outer.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+        var title = new Label
+        {
+            Text = "HOFFICE.VN",
+            AutoSize = true,
+            Dock = DockStyle.Fill,
+            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(70, 70, 70),
+            TextAlign = ContentAlignment.MiddleLeft
+        };
+
+        var row = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1
+        };
+        row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 205));
+
+        var menu = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = false,
+            WrapContents = false,
+            Margin = new Padding(0)
+        };
+
+        menu.Controls.Add(MenuButton("⌂", 0, 38));
+        menu.Controls.Add(MenuButton("Thêm máy", 1));
+        menu.Controls.Add(MenuButton("Tìm kiếm", 2));
+        menu.Controls.Add(MenuButton("Lịch sử", 3));
+        menu.Controls.Add(MenuButton("Cài đặt", 4));
+        menu.Controls.Add(MenuButton("Hướng dẫn", 5));
+        menu.Controls.Add(MenuButton("Xuất/Nhập DS thiết bị", 1, 150));
+
+        var syncButton = new Button
+        {
+            Text = "Tải/đẩy log tự động",
+            Dock = DockStyle.Fill,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = PrimaryBlue,
+            ForeColor = Color.White,
+            Margin = new Padding(0, 2, 0, 2),
+            Height = 34
+        };
+        syncButton.FlatAppearance.BorderSize = 0;
+        syncButton.Click += async (_, _) => await SyncNowAsync();
+
+        row.Controls.Add(menu, 0, 0);
+        row.Controls.Add(syncButton, 1, 0);
+        outer.Controls.Add(title, 0, 0);
+        outer.Controls.Add(row, 0, 1);
+        return outer;
+    }
+
+    private Button MenuButton(string text, int pageIndex, int width = 92)
+    {
+        var button = new Button
+        {
+            Text = text,
+            Width = width,
+            Height = 34,
+            Margin = new Padding(0),
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.White,
+            ForeColor = Color.Black,
+            Tag = pageIndex
+        };
+        button.FlatAppearance.BorderColor = MenuBorderColor;
+        button.FlatAppearance.BorderSize = 1;
+        button.Click += (_, _) => ShowPage(pageIndex);
+        _menuButtons.Add(button);
+        return button;
+    }
+
+    private Control BuildFooter()
+    {
+        return new Label
+        {
+            Text = "Bản quyền thuộc HOFFICE © | Phiên bản 2.0",
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleRight,
+            Padding = new Padding(0, 3, 12, 0),
+            BackColor = Color.White,
+            BorderStyle = BorderStyle.FixedSingle
+        };
+    }
+
+    private void ShowPage(int pageIndex)
+    {
+        if (pageIndex < 0 || pageIndex >= _tabs.TabPages.Count)
+        {
+            return;
+        }
+
+        _tabs.SelectedIndex = pageIndex;
+        UpdateMenuState();
+    }
+
+    private void UpdateMenuState()
+    {
+        foreach (var button in _menuButtons)
+        {
+            var selected = button.Tag is int pageIndex && pageIndex == _tabs.SelectedIndex;
+            button.BackColor = selected ? Color.FromArgb(245, 245, 245) : Color.White;
+            button.FlatAppearance.BorderColor = selected ? PrimaryBlue : MenuBorderColor;
+            button.ForeColor = selected ? PrimaryBlue : Color.Black;
+        }
     }
 
     private TabPage BuildOverviewTab()
     {
-        var tab = new TabPage("Tổng quan");
+        var tab = new TabPage("Tong quan");
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            RowCount = 3,
+            RowCount = 2,
             ColumnCount = 1,
-            Padding = new Padding(12)
+            Padding = new Padding(0)
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-        var summary = new TableLayoutPanel
+        var search = new FlowLayoutPanel
         {
             Dock = DockStyle.Top,
             AutoSize = true,
-            ColumnCount = 3,
-            RowCount = 1,
-            Margin = new Padding(0, 0, 0, 8)
+            FlowDirection = FlowDirection.RightToLeft,
+            Padding = new Padding(0, 10, 10, 8)
         };
-        summary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34));
-        summary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33));
-        summary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33));
-        summary.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-
-        summary.Controls.Add(BuildSummaryGroup(
-            "Kết nối",
-            ("Service", _serviceStatusValue),
-            ("API", _apiStatusValue),
-            ("Lần đồng bộ", _lastSyncValue)), 0, 0);
-        summary.Controls.Add(BuildSummaryGroup(
-            "Thiết bị",
-            ("Tổng máy", _deviceCountValue),
-            ("Đang hoạt động", _activeDeviceValue),
-            ("Máy lỗi", _deviceErrorValue)), 1, 0);
-        summary.Controls.Add(BuildSummaryGroup(
-            "Log",
-            ("Đã gửi hôm nay", _sentTodayValue),
-            ("Pending", _pendingValue),
-            ("Lỗi mapping", _mappingErrorValue)), 2, 0);
-
-        var actions = new FlowLayoutPanel
+        _homeSearchText.Width = 160;
+        _homeSearchText.Margin = new Padding(8, 0, 0, 0);
+        _homeSearchText.TextChanged += (_, _) => RefreshHome();
+        search.Controls.Add(_homeSearchText);
+        search.Controls.Add(new Label
         {
-            Dock = DockStyle.Fill,
+            Text = "Tim kiem",
             AutoSize = true,
-            Padding = new Padding(0, 8, 0, 8),
-            WrapContents = true
-        };
-        actions.Controls.Add(Button("Đồng bộ ngay", async (_, _) => await SyncNowAsync()));
-        actions.Controls.Add(Button("Test API", async (_, _) => await TestApiAsync()));
-        actions.Controls.Add(Button("Cài/Cập nhật Service", async (_, _) => await InstallServiceAsync()));
-        actions.Controls.Add(Button("Restart Service", async (_, _) => await RestartServiceAsync()));
-        actions.Controls.Add(Button("Mở thư mục log", (_, _) => OpenDataFolder()));
-        actions.Controls.Add(Button("Refresh", (_, _) => RefreshDynamicData()));
+            TextAlign = ContentAlignment.MiddleCenter,
+            Margin = new Padding(0, 3, 0, 0)
+        });
 
-        layout.Controls.Add(summary, 0, 0);
-        layout.Controls.Add(actions, 0, 1);
-        layout.Controls.Add(_outputText, 0, 2);
+        layout.Controls.Add(search, 0, 0);
+        layout.Controls.Add(_homeGrid, 0, 1);
         tab.Controls.Add(layout);
         return tab;
     }
-
     private TabPage BuildDevicesTab()
     {
         var tab = new TabPage("Thiết bị");
@@ -329,6 +457,55 @@ public sealed class MainForm : Form
 
     private TabPage BuildPendingTab()
     {
+        var tab = new TabPage("Tim kiem");
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            RowCount = 3,
+            ColumnCount = 1,
+            Padding = new Padding(0)
+        };
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 172));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+        var form = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 3,
+            RowCount = 4,
+            Padding = new Padding(170, 28, 200, 0)
+        };
+        form.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
+        form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        form.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
+
+        AddSearchRow(form, 0, "Ma cham cong", _searchEmployeeText);
+        AddSearchRow(form, 1, "Tu Ngay", _searchFromDate);
+        AddSearchRow(form, 2, "Den ngay", _searchToDate);
+
+        var searchButton = Button("Tim kiem", (_, _) => RefreshPending());
+        searchButton.Width = 100;
+        searchButton.Anchor = AnchorStyles.Top;
+        form.Controls.Add(searchButton, 1, 3);
+
+        var title = new Label
+        {
+            Text = "Danh sach log cham cong",
+            Dock = DockStyle.Fill,
+            Padding = new Padding(8, 0, 0, 0),
+            TextAlign = ContentAlignment.BottomLeft
+        };
+
+        layout.Controls.Add(form, 0, 0);
+        layout.Controls.Add(title, 0, 1);
+        layout.Controls.Add(_pendingGrid, 0, 2);
+        tab.Controls.Add(layout);
+        return tab;
+    }
+
+    private TabPage BuildPendingTabOld()
+    {
         var tab = new TabPage("Pending");
         var retryButton = Button("Gửi lại ngay", async (_, _) => await SyncNowAsync());
         var clearButton = Button("Xóa pending", (_, _) => ClearPendingLogs());
@@ -337,6 +514,37 @@ public sealed class MainForm : Form
     }
 
     private TabPage BuildErrorsTab()
+    {
+        var tab = new TabPage("Huong dan");
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            RowCount = 2,
+            ColumnCount = 1,
+            Padding = new Padding(12)
+        };
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+        var actions = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            Dock = DockStyle.Fill,
+            Padding = new Padding(0, 0, 0, 8)
+        };
+        actions.Controls.Add(Button("Cai driver", async (_, _) => await InstallDeviceDriverAsync()));
+        actions.Controls.Add(Button("Cai/Cap nhat Service", async (_, _) => await InstallServiceAsync()));
+        actions.Controls.Add(Button("Restart Service", async (_, _) => await RestartServiceAsync()));
+        actions.Controls.Add(Button("Mo thu muc log", (_, _) => OpenDataFolder()));
+        actions.Controls.Add(Button("Refresh", (_, _) => RefreshDynamicData()));
+
+        layout.Controls.Add(actions, 0, 0);
+        layout.Controls.Add(_outputText, 0, 1);
+        tab.Controls.Add(layout);
+        return tab;
+    }
+
+    private TabPage BuildErrorsTabOld()
     {
         var tab = new TabPage("Lỗi");
         tab.Controls.Add(BuildGridPanel(_errorsGrid, Button("Refresh", (_, _) => RefreshErrors())));
@@ -671,6 +879,8 @@ public sealed class MainForm : Form
         _apiTimeoutInput.Value = Math.Clamp(settings.TimeoutSeconds, 1, 300);
         _syncIntervalInput.Value = Math.Clamp(_store.GetSyncIntervalMinutes(), 1, 1440);
         _readBackDaysInput.Value = Math.Clamp(_store.GetReadBackDays(), 0, 365);
+        _searchFromDate.Value = DateTime.Today.AddDays(-Math.Max(1, (int)_readBackDaysInput.Value));
+        _searchToDate.Value = DateTime.Today;
     }
 
     private void SaveApiSettingsFromForm(bool showMessage = true)
@@ -725,10 +935,31 @@ public sealed class MainForm : Form
     private void RefreshDynamicData()
     {
         RefreshOverview();
+        RefreshHome();
         RefreshDevices();
         RefreshHistory();
         RefreshPending();
         RefreshErrors();
+    }
+
+    private void RefreshHome()
+    {
+        var filter = _homeSearchText.Text.Trim();
+        var pendingByDevice = _store.GetPendingLogs()
+            .GroupBy(item => item.DeviceId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase);
+
+        var rows = _store.GetDevices()
+            .Select((device, index) => DeviceHomeRow.From(device, index + 1, pendingByDevice.GetValueOrDefault(device.DeviceId)))
+            .Where(row => string.IsNullOrWhiteSpace(filter) ||
+                row.Location.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+                row.Code.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+                row.IpAddress.Contains(filter, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        _homeGrid.DataSource = null;
+        _homeGrid.DataSource = rows;
+        FormatHomeGrid();
     }
 
     private void RefreshOverview()
@@ -778,6 +1009,22 @@ public sealed class MainForm : Form
         SetColumn("LastError", "Lỗi gần nhất", 220);
     }
 
+    private void FormatHomeGrid()
+    {
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.No), "#", 50);
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.Location), "Dia diem", 120);
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.Status), "Trang thai", 130);
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.LogCount), "So log", 80);
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.UserCount), "Nguoi dung", 95);
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.LastLoadedAt), "Lan tai cuoi", 145);
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.LoadFrom), "Tai tu ngay", 120);
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.Code), "Ma", 80);
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.IpAddress), "IP", 120);
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.Port), "Port", 70);
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.Serial), "Serial", 110);
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.DeviceType), "Loai May", 130);
+    }
+
     private void HideColumn(string name)
     {
         if (_devicesGrid.Columns.Contains(name))
@@ -800,17 +1047,28 @@ public sealed class MainForm : Form
 
     private void RefreshHistory()
     {
+        var devices = _store.GetDevices()
+            .ToDictionary(device => device.DeviceId, StringComparer.OrdinalIgnoreCase);
+
         _historyGrid.DataSource = null;
         _historyGrid.DataSource = _store.GetRecentSyncLogs()
-            .Select(SyncLogRow.From)
+            .Select(log => SyncLogRow.From(log, devices.GetValueOrDefault(log.DeviceId)))
             .ToList();
         FormatHistoryGrid();
     }
 
     private void RefreshPending()
     {
+        var employee = _searchEmployeeText.Text.Trim();
+        var from = _searchFromDate.Value.Date;
+        var toExclusive = _searchToDate.Value.Date.AddDays(1);
+
         _pendingGrid.DataSource = null;
         _pendingGrid.DataSource = _store.GetPendingLogs()
+            .Where(log => string.IsNullOrWhiteSpace(employee) ||
+                log.EmployeeCode.Contains(employee, StringComparison.OrdinalIgnoreCase))
+            .Where(log => !DateTime.TryParse(log.PunchTime, out var punchTime) ||
+                (punchTime >= from && punchTime < toExclusive))
             .Select(PendingLogRow.From)
             .ToList();
         FormatPendingGrid();
@@ -827,16 +1085,15 @@ public sealed class MainForm : Form
 
     private void FormatHistoryGrid()
     {
-        SetGridColumn(_historyGrid, nameof(SyncLogRow.Id), "#", 48);
-        SetGridColumn(_historyGrid, nameof(SyncLogRow.DeviceId), "Máy", 90);
-        SetGridColumn(_historyGrid, nameof(SyncLogRow.StartedAt), "Bắt đầu", 145);
-        SetGridColumn(_historyGrid, nameof(SyncLogRow.FinishedAt), "Kết thúc", 145);
-        SetGridColumn(_historyGrid, nameof(SyncLogRow.Status), "Trạng thái", 100);
-        SetGridColumn(_historyGrid, nameof(SyncLogRow.TotalRead), "Đọc", 70);
-        SetGridColumn(_historyGrid, nameof(SyncLogRow.TotalSent), "Gửi", 70);
-        SetGridColumn(_historyGrid, nameof(SyncLogRow.Pending), "Pending", 80);
-        SetGridColumn(_historyGrid, nameof(SyncLogRow.TotalFailed), "Lỗi", 70);
-        SetGridColumn(_historyGrid, nameof(SyncLogRow.ErrorMessage), "Ghi chú", 360);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.Time), "Thoi gian", 145);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.Location), "Dia diem", 130);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.IpAddress), "IP", 120);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.Content), "Noi dung", 140);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.FromDate), "Tu ngay", 110);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.ToDate), "Den ngay", 110);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.Result), "Ket qua", 120);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.Data), "Du lieu", 140);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.Note), "Ghi chu", 300);
     }
 
     private void FormatPendingGrid()
@@ -1027,6 +1284,22 @@ public sealed class MainForm : Form
         panel.Controls.Add(control, 1, row);
     }
 
+    private static void AddSearchRow(TableLayoutPanel panel, int row, string label, Control control)
+    {
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        panel.Controls.Add(new Label
+        {
+            Text = label,
+            AutoSize = true,
+            Anchor = AnchorStyles.Left,
+            Margin = new Padding(0, 4, 8, 0)
+        }, 0, row);
+
+        control.Dock = DockStyle.Fill;
+        control.Margin = new Padding(0, 0, 0, 4);
+        panel.Controls.Add(control, 1, row);
+    }
+
     private static Label ValueLabel() => new()
     {
         AutoSize = true,
@@ -1077,39 +1350,82 @@ public sealed class MainForm : Form
 
     private sealed class SyncLogRow
     {
-        public int Id { get; init; }
+        public string Time { get; init; } = string.Empty;
 
-        public string DeviceId { get; init; } = string.Empty;
+        public string Location { get; init; } = string.Empty;
 
-        public string StartedAt { get; init; } = string.Empty;
+        public string IpAddress { get; init; } = string.Empty;
 
-        public string FinishedAt { get; init; } = string.Empty;
+        public string Content { get; init; } = string.Empty;
+
+        public string FromDate { get; init; } = string.Empty;
+
+        public string ToDate { get; init; } = string.Empty;
+
+        public string Result { get; init; } = string.Empty;
+
+        public string Data { get; init; } = string.Empty;
+
+        public string Note { get; init; } = string.Empty;
+
+        public static SyncLogRow From(SyncLog log, Device? device) => new()
+        {
+            Time = FormatDateTimeText(log.StartedAt),
+            Location = string.IsNullOrWhiteSpace(device?.StoreCode) ? log.DeviceId : device.StoreCode,
+            IpAddress = device?.IpAddress ?? string.Empty,
+            Content = log.TotalSent > 0 ? "Day log" : "Tai log",
+            FromDate = "",
+            ToDate = "",
+            Result = TranslateStatus(log.Status),
+            Data = $"{log.TotalRead} logs",
+            Note = log.ErrorMessage
+        };
+    }
+
+    private sealed class DeviceHomeRow
+    {
+        public int No { get; init; }
+
+        public string Location { get; init; } = string.Empty;
 
         public string Status { get; init; } = string.Empty;
 
-        public int TotalRead { get; init; }
+        public int LogCount { get; init; }
 
-        public int TotalSent { get; init; }
+        public string UserCount { get; init; } = string.Empty;
 
-        public int Pending { get; init; }
+        public string LastLoadedAt { get; init; } = string.Empty;
 
-        public int TotalFailed { get; init; }
+        public string LoadFrom { get; init; } = string.Empty;
 
-        public string ErrorMessage { get; init; } = string.Empty;
+        public string Code { get; init; } = string.Empty;
 
-        public static SyncLogRow From(SyncLog log) => new()
+        public string IpAddress { get; init; } = string.Empty;
+
+        public int Port { get; init; }
+
+        public string Serial { get; init; } = string.Empty;
+
+        public string DeviceType { get; init; } = string.Empty;
+
+        public static DeviceHomeRow From(Device device, int no, int pendingLogs)
         {
-            Id = log.Id,
-            DeviceId = log.DeviceId,
-            StartedAt = FormatDateTimeText(log.StartedAt),
-            FinishedAt = FormatDateTimeText(log.FinishedAt),
-            Status = TranslateStatus(log.Status),
-            TotalRead = log.TotalRead,
-            TotalSent = log.TotalSent,
-            Pending = log.TotalInserted,
-            TotalFailed = log.TotalFailed,
-            ErrorMessage = log.ErrorMessage
-        };
+            return new DeviceHomeRow
+            {
+                No = no,
+                Location = device.StoreCode,
+                Status = string.IsNullOrWhiteSpace(device.LastError) ? "San sang" : "Co loi",
+                LogCount = pendingLogs,
+                UserCount = "",
+                LastLoadedAt = FormatDateTimeText(device.LastSuccessSyncAt ?? string.Empty),
+                LoadFrom = "",
+                Code = device.DeviceId,
+                IpAddress = device.IpAddress,
+                Port = device.Port,
+                Serial = "",
+                DeviceType = device.DeviceTypeName
+            };
+        }
     }
 
     private sealed class AppErrorRow
