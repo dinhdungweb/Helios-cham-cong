@@ -18,7 +18,9 @@ public sealed class MainForm : Form
     private static readonly Color SidebarSelectedColor = Color.FromArgb(20, 126, 113);
     private static readonly Color ShellBackColor = Color.FromArgb(244, 246, 248);
     private static readonly Color CardBorderColor = Color.FromArgb(220, 226, 229);
-    private static readonly Color FormInputBorderColor = Color.FromArgb(205, 216, 222);
+    private static readonly Color FormInputBorderColor = Color.FromArgb(213, 222, 227);
+    private static readonly Color FormInputHoverBorderColor = Color.FromArgb(174, 194, 201);
+    private static readonly Color FormInputBackColor = Color.FromArgb(252, 254, 254);
     private static readonly Color MutedTextColor = Color.FromArgb(94, 108, 113);
     private readonly AttendanceSyncStore _store = new();
     private readonly IAttendanceDeviceClient _deviceClient = new DeviceTypeAttendanceDeviceClient();
@@ -1618,65 +1620,17 @@ public sealed class MainForm : Form
     private static Control InputFrame(Control control)
     {
         StyleFormInputControl(control);
-
-        var frame = new Panel
-        {
-            Dock = DockStyle.Fill,
-            Height = 32,
-            MinimumSize = new Size(0, 32),
-            Margin = new Padding(0, 2, 0, 2),
-            BackColor = Color.White,
-            TabStop = false
-        };
-
-        var border = new Panel
-        {
-            BackColor = FormInputBorderColor,
-            Padding = new Padding(1),
-            TabStop = false
-        };
-
-        var content = new Panel
-        {
-            Dock = DockStyle.Fill,
-            BackColor = Color.White,
-            Padding = new Padding(8, 0, 8, 0),
-            TabStop = false
-        };
-
-        void LayoutControl()
-        {
-            border.Bounds = new Rectangle(0, 0, Math.Max(24, frame.ClientSize.Width - 8), frame.ClientSize.Height);
-            var preferredHeight = control.PreferredSize.Height;
-            if (control is TextBox)
-            {
-                preferredHeight = 20;
-            }
-
-            var innerHeight = Math.Min(preferredHeight, Math.Max(20, content.ClientSize.Height - 4));
-            var top = Math.Max(2, (content.ClientSize.Height - innerHeight) / 2);
-            control.Bounds = new Rectangle(
-                content.Padding.Left,
-                top,
-                Math.Max(24, content.ClientSize.Width - content.Padding.Horizontal),
-                innerHeight);
-        }
-
-        frame.Resize += (_, _) => LayoutControl();
-        content.Resize += (_, _) => LayoutControl();
-        control.Enter += (_, _) => border.BackColor = PrimaryBlue;
-        control.Leave += (_, _) => border.BackColor = FormInputBorderColor;
-        content.Controls.Add(control);
-        border.Controls.Add(content);
-        frame.Controls.Add(border);
-        LayoutControl();
-        return frame;
+        return BuildStyledInputFrame(control);
     }
 
     private static Control SearchInputFrame(Control control)
     {
         StyleInputControl(control);
+        return BuildStyledInputFrame(control);
+    }
 
+    private static Control BuildStyledInputFrame(Control control)
+    {
         var frame = new Panel
         {
             Dock = DockStyle.Fill,
@@ -1698,9 +1652,23 @@ public sealed class MainForm : Form
         {
             Dock = DockStyle.Fill,
             Margin = new Padding(0),
-            Padding = new Padding(8, 0, 8, 0),
-            BackColor = Color.White
+            Padding = new Padding(10, 0, 8, 0),
+            BackColor = FormInputBackColor
         };
+        var active = false;
+        var hovering = false;
+
+        void ApplyVisualState()
+        {
+            border.BackColor = active ? PrimaryBlue : hovering ? FormInputHoverBorderColor : FormInputBorderColor;
+            var backColor = active ? Color.White : FormInputBackColor;
+            content.BackColor = backColor;
+            control.BackColor = backColor;
+            if (control is SearchDatePicker datePicker)
+            {
+                datePicker.SetChromeBackColor(backColor);
+            }
+        }
 
         void LayoutControl()
         {
@@ -1730,14 +1698,47 @@ public sealed class MainForm : Form
                 height);
         }
 
+        void MouseEntered(object? _, EventArgs __)
+        {
+            hovering = true;
+            ApplyVisualState();
+        }
+
+        void MouseLeft(object? _, EventArgs __)
+        {
+            hovering = frame.ClientRectangle.Contains(frame.PointToClient(Cursor.Position));
+            ApplyVisualState();
+        }
+
+        void FocusEntered(object? _, EventArgs __)
+        {
+            active = true;
+            ApplyVisualState();
+        }
+
+        void FocusLeft(object? _, EventArgs __)
+        {
+            active = false;
+            ApplyVisualState();
+        }
+
         frame.Resize += (_, _) => LayoutControl();
         content.Resize += (_, _) => LayoutControl();
-        control.Enter += (_, _) => border.BackColor = PrimaryBlue;
-        control.Leave += (_, _) => border.BackColor = FormInputBorderColor;
+        frame.MouseEnter += MouseEntered;
+        border.MouseEnter += MouseEntered;
+        content.MouseEnter += MouseEntered;
+        control.MouseEnter += MouseEntered;
+        frame.MouseLeave += MouseLeft;
+        border.MouseLeave += MouseLeft;
+        content.MouseLeave += MouseLeft;
+        control.MouseLeave += MouseLeft;
+        control.Enter += FocusEntered;
+        control.Leave += FocusLeft;
         content.Controls.Add(control);
         border.Controls.Add(content);
         frame.Controls.Add(border);
         LayoutControl();
+        ApplyVisualState();
         return frame;
     }
 
@@ -1827,7 +1828,7 @@ public sealed class MainForm : Form
             Text = "v",
             Width = 28,
             FlatStyle = FlatStyle.Flat,
-            BackColor = Color.White,
+            BackColor = FormInputBackColor,
             ForeColor = Color.FromArgb(28, 48, 54),
             TabStop = false
         };
@@ -1843,12 +1844,21 @@ public sealed class MainForm : Form
             TabStop = true;
 
             _button.FlatAppearance.BorderSize = 0;
+            _button.FlatAppearance.MouseOverBackColor = Color.FromArgb(244, 248, 249);
+            _button.FlatAppearance.MouseDownBackColor = Color.FromArgb(236, 243, 244);
             _button.Click += (_, _) => ShowCalendar();
             _textBox.Click += (_, _) => ShowCalendar();
 
             Controls.Add(_textBox);
             Controls.Add(_button);
             UpdateText();
+        }
+
+        public void SetChromeBackColor(Color color)
+        {
+            BackColor = color;
+            _textBox.BackColor = color;
+            _button.BackColor = color;
         }
 
         public DateTime Value
