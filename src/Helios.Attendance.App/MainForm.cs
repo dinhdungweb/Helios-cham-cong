@@ -656,13 +656,13 @@ public sealed class MainForm : Form
             var field = new TableLayoutPanel
             {
                 Width = width,
-                Height = 68,
+                Height = 54,
                 ColumnCount = 1,
                 RowCount = 2,
                 Margin = new Padding(0, 0, 12, 0)
             };
             field.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
-            field.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+            field.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
             field.Controls.Add(new Label
             {
                 Text = label,
@@ -681,7 +681,7 @@ public sealed class MainForm : Form
         var searchButton = Button("Tìm kiếm", (_, _) => RefreshPending());
         searchButton.Width = 110;
         searchButton.Height = 32;
-        searchButton.Margin = new Padding(0, 25, 8, 0);
+        searchButton.Margin = new Padding(0, 22, 8, 0);
         filters.Controls.Add(searchButton);
         filterContent.Controls.Add(filters, 0, 1);
 
@@ -1597,7 +1597,9 @@ public sealed class MainForm : Form
     private static Control SearchInputFrame(Control control)
     {
         StyleInputControl(control);
-        return BuildStyledInputFrame(control);
+        var frame = BuildStyledInputFrame(control);
+        frame.Margin = new Padding(0);
+        return frame;
     }
 
     private static Control BuildStyledInputFrame(Control control)
