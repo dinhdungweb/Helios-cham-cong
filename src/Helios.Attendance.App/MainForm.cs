@@ -1641,30 +1641,16 @@ public sealed class MainForm : Form
     {
         StyleInputControl(control);
 
-        var frame = new TableLayoutPanel
+        var frame = new Panel
         {
             Dock = DockStyle.Fill,
             Height = 32,
             MinimumSize = new Size(0, 32),
             Margin = new Padding(0, 2, 0, 2),
-            Padding = new Padding(0),
-            BackColor = Color.White,
-            TabStop = false,
-            ColumnCount = 3,
-            RowCount = 3
+            Padding = new Padding(2),
+            BackColor = CardBorderColor,
+            TabStop = false
         };
-        frame.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 1));
-        frame.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        frame.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 1));
-        frame.RowStyles.Add(new RowStyle(SizeType.Absolute, 1));
-        frame.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        frame.RowStyles.Add(new RowStyle(SizeType.Absolute, 1));
-
-        var topBorder = BorderStrip();
-        var rightBorder = BorderStrip();
-        var bottomBorder = BorderStrip();
-        var leftBorder = BorderStrip();
-        var borders = new[] { topBorder, rightBorder, bottomBorder, leftBorder };
 
         var content = new Panel
         {
@@ -1688,36 +1674,15 @@ public sealed class MainForm : Form
             control.Bounds = new Rectangle(content.Padding.Left, top, innerWidth, innerHeight);
         }
 
-        void SetBorderColor(Color color)
-        {
-            foreach (var border in borders)
-            {
-                border.BackColor = color;
-            }
-        }
-
         content.Resize += (_, _) => LayoutControl();
-        control.Enter += (_, _) => SetBorderColor(PrimaryBlue);
-        control.Leave += (_, _) => SetBorderColor(CardBorderColor);
+        control.Enter += (_, _) => frame.BackColor = PrimaryBlue;
+        control.Leave += (_, _) => frame.BackColor = CardBorderColor;
         content.Controls.Add(control);
         LayoutControl();
 
-        frame.Controls.Add(topBorder, 0, 0);
-        frame.SetColumnSpan(topBorder, 3);
-        frame.Controls.Add(rightBorder, 2, 1);
-        frame.Controls.Add(bottomBorder, 0, 2);
-        frame.SetColumnSpan(bottomBorder, 3);
-        frame.Controls.Add(leftBorder, 0, 1);
-        frame.Controls.Add(content, 1, 1);
+        frame.Controls.Add(content);
         return frame;
     }
-
-    private static Panel BorderStrip() => new()
-    {
-        Dock = DockStyle.Fill,
-        Margin = new Padding(0),
-        BackColor = CardBorderColor
-    };
 
     private static void StyleInputControl(Control control)
     {
