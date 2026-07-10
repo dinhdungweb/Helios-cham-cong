@@ -476,7 +476,7 @@ public sealed class MainForm : Form
         {
             AppendOutput("Không tìm thấy zkemkeeper.dll tự động, mở cửa sổ chọn file.");
             MessageBox.Show(
-                "Không tìm thấy driver tự động. Hãy chọn file zkemkeeper.dll nếu bạn có file driver, hoặc đặt file này vào thư mục drivers cạnh app rồi bấm Cài driver lại.",
+                "Không tìm thấy driver gốc tự động. Hãy chọn file zkemkeeper.dll trong thư mục cài phần mềm/SDK của nhà cung cấp, ví dụ DTC Software, ZK hoặc ZKTeco. Không nên chọn file trong thư mục của app trung gian như 1Office.",
                 "Chọn driver",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);

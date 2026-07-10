@@ -18,16 +18,16 @@ public static class ZkSdkInstaller
 
     private static readonly string[] SearchKeywords =
     [
+        "dtc",
         "zk",
+        "zksoftware",
+        "zkaccess",
         "zkteco",
         "ronald",
         "jack",
         "attendance",
         "cham",
-        "chấm",
-        "1office",
-        "10ffice",
-        "hoffice"
+        "chấm"
     ];
 
     public static bool IsRegistered() => Type.GetTypeFromProgID(ProgId) is not null;
@@ -134,7 +134,7 @@ public static class ZkSdkInstaller
         {
             1 => "Cài SDK ZK không thành công: tham số cài driver không hợp lệ.",
             2 => "Cài SDK ZK không thành công: Windows không khởi tạo được COM/OLE.",
-            3 => "Cài SDK ZK không thành công: Windows không load được zkemkeeper.dll. Nếu máy đã cài phần mềm chấm công, hãy chọn đúng zkemkeeper.dll nằm trong thư mục cài phần mềm đó, không chọn file copy rời. Nếu vẫn lỗi, phần mềm đó có thể dùng driver riêng không phải zkemkeeper COM, hoặc bộ driver thiếu file phụ thuộc.",
+            3 => "Cài SDK ZK không thành công: Windows không load được zkemkeeper.dll. Nếu máy đã cài DTC Software/ZK/ZKTeco, hãy chọn đúng zkemkeeper.dll nằm trong thư mục cài phần mềm hoặc thư mục SDK của nhà cung cấp đó. Không chọn file trong app trung gian như 1Office. Nếu vẫn lỗi, bộ driver có thể thiếu file phụ thuộc hoặc không phải zkemkeeper COM.",
             4 => "Cài SDK ZK không thành công: file DLL không có hàm đăng ký COM DllRegisterServer. Có thể chọn nhầm file DLL.",
             5 => "Cài SDK ZK không thành công: DllRegisterServer trả lỗi. Hãy chạy app bằng quyền Administrator hoặc dùng bộ SDK khác đúng phiên bản.",
             _ => $"Cài SDK ZK không thành công. Mã lỗi: {exitCode}. File: {dllPath}"
@@ -218,6 +218,11 @@ public static class ZkSdkInstaller
             foreach (var child in EnumerateDirectoriesSafe(directory))
             {
                 var nextDepth = depth + 1;
+                if (depth == 0 && IsBroadSearchRoot(directory) && !LooksRelevant(child))
+                {
+                    continue;
+                }
+
                 if (depth > 0 && nextDepth >= 3 && !LooksRelevant(child))
                 {
                     continue;
@@ -257,6 +262,32 @@ public static class ZkSdkInstaller
 
     private static bool LooksRelevant(string path) =>
         SearchKeywords.Any(keyword => path.Contains(keyword, StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsBroadSearchRoot(string path)
+    {
+        foreach (var specialFolder in new[]
+        {
+            Environment.SpecialFolder.ProgramFilesX86,
+            Environment.SpecialFolder.ProgramFiles,
+            Environment.SpecialFolder.CommonProgramFilesX86,
+            Environment.SpecialFolder.CommonProgramFiles,
+            Environment.SpecialFolder.LocalApplicationData,
+            Environment.SpecialFolder.ApplicationData
+        })
+        {
+            var folder = Environment.GetFolderPath(specialFolder);
+            if (!string.IsNullOrWhiteSpace(folder) &&
+                string.Equals(
+                    Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar),
+                    Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private static ZkSdkInstallResult Success(string message) => new()
     {
