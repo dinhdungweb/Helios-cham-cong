@@ -470,10 +470,17 @@ public sealed class MainForm : Form
             return;
         }
 
-        AppendOutput("Đang tìm zkemkeeper.dll trên máy...");
-        var dllPath = await Task.Run(ZkSdkInstaller.FindSdkDll);
+        AppendOutput("Đang tìm nhanh zkemkeeper.dll...");
+        var dllPath = await Task.Run(() => ZkSdkInstaller.FindSdkDll(TimeSpan.FromSeconds(3)));
         if (string.IsNullOrWhiteSpace(dllPath))
         {
+            AppendOutput("Không tìm thấy zkemkeeper.dll tự động, mở cửa sổ chọn file.");
+            MessageBox.Show(
+                "Không tìm thấy driver tự động. Hãy chọn file zkemkeeper.dll nếu bạn có file driver, hoặc đặt file này vào thư mục drivers cạnh app rồi bấm Cài driver lại.",
+                "Chọn driver",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+
             using var dialog = new OpenFileDialog
             {
                 Title = "Chọn file zkemkeeper.dll",

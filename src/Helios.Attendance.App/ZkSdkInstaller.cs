@@ -14,6 +14,7 @@ public static class ZkSdkInstaller
 {
     public const string ProgId = "zkemkeeper.CZKEM";
     private const string DllFileName = "zkemkeeper.dll";
+    private const int MaxVisitedDirectories = 700;
 
     private static readonly string[] SearchKeywords =
     [
@@ -31,8 +32,11 @@ public static class ZkSdkInstaller
 
     public static bool IsRegistered() => Type.GetTypeFromProgID(ProgId) is not null;
 
-    public static string? FindSdkDll()
+    public static string? FindSdkDll() => FindSdkDll(TimeSpan.FromSeconds(3));
+
+    public static string? FindSdkDll(TimeSpan maxDuration)
     {
+        var stopwatch = Stopwatch.StartNew();
         foreach (var path in GetDirectCandidatePaths())
         {
             if (File.Exists(path))
@@ -43,7 +47,12 @@ public static class ZkSdkInstaller
 
         foreach (var root in GetSearchRoots().Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            var found = FindSdkDll(root);
+            if (stopwatch.Elapsed >= maxDuration)
+            {
+                return null;
+            }
+
+            var found = FindSdkDll(root, stopwatch, maxDuration);
             if (!string.IsNullOrWhiteSpace(found))
             {
                 return found;
@@ -160,7 +169,7 @@ public static class ZkSdkInstaller
         }
     }
 
-    private static string? FindSdkDll(string root)
+    private static string? FindSdkDll(string root, Stopwatch stopwatch, TimeSpan maxDuration)
     {
         if (!Directory.Exists(root))
         {
@@ -171,7 +180,9 @@ public static class ZkSdkInstaller
         queue.Enqueue((root, 0));
         var visited = 0;
 
-        while (queue.Count > 0 && visited < 12000)
+        while (queue.Count > 0 &&
+            visited < MaxVisitedDirectories &&
+            stopwatch.Elapsed < maxDuration)
         {
             var (directory, depth) = queue.Dequeue();
             visited++;
