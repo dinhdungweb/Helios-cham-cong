@@ -655,7 +655,7 @@ public sealed class MainForm : Form
             Padding = new Padding(16),
             BackColor = ShellBackColor
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 142));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 148));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         var filterContent = new TableLayoutPanel
@@ -688,13 +688,13 @@ public sealed class MainForm : Form
             var field = new TableLayoutPanel
             {
                 Width = width,
-                Height = 64,
+                Height = 68,
                 ColumnCount = 1,
                 RowCount = 2,
                 Margin = new Padding(0, 0, 12, 0)
             };
             field.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
-            field.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+            field.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
             field.Controls.Add(new Label
             {
                 Text = label,
@@ -706,20 +706,15 @@ public sealed class MainForm : Form
             filters.Controls.Add(field);
         }
 
-        AddFilter("Mã chấm công", _searchEmployeeText, 210);
-        AddFilter("Từ ngày", _searchFromDate, 160);
-        AddFilter("Đến ngày", _searchToDate, 160);
+        AddFilter("Mã chấm công", _searchEmployeeText, 220);
+        AddFilter("Từ ngày", _searchFromDate, 190);
+        AddFilter("Đến ngày", _searchToDate, 190);
 
         var searchButton = Button("Tìm kiếm", (_, _) => RefreshPending());
         searchButton.Width = 110;
-        searchButton.Height = 32;
-        searchButton.Margin = new Padding(0, 20, 8, 0);
+        searchButton.Height = 34;
+        searchButton.Margin = new Padding(0, 22, 8, 0);
         filters.Controls.Add(searchButton);
-        var pushButton = Button("Đẩy dữ liệu", async (_, _) => await PushNowAsync());
-        pushButton.Width = 120;
-        pushButton.Height = 32;
-        pushButton.Margin = new Padding(0, 20, 8, 0);
-        filters.Controls.Add(pushButton);
         filterContent.Controls.Add(filters, 0, 1);
 
         var filterCard = CardPanel(new Padding(14), new Padding(0, 0, 0, 12));
@@ -1689,9 +1684,9 @@ public sealed class MainForm : Form
         var frame = new Panel
         {
             Dock = DockStyle.Fill,
-            Height = 32,
-            MinimumSize = new Size(0, 32),
-            Margin = new Padding(0, 2, 0, 2),
+            Height = 36,
+            MinimumSize = new Size(0, 36),
+            Margin = new Padding(0, 3, 0, 3),
             Padding = new Padding(2),
             BackColor = CardBorderColor,
             TabStop = false
