@@ -1641,46 +1641,83 @@ public sealed class MainForm : Form
     {
         StyleInputControl(control);
 
-        var frame = new Panel
+        var frame = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             Height = 32,
             MinimumSize = new Size(0, 32),
             Margin = new Padding(0, 2, 0, 2),
-            Padding = new Padding(8, 0, 8, 0),
+            Padding = new Padding(0),
             BackColor = Color.White,
-            TabStop = false
+            TabStop = false,
+            ColumnCount = 3,
+            RowCount = 3
+        };
+        frame.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 1));
+        frame.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        frame.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 1));
+        frame.RowStyles.Add(new RowStyle(SizeType.Absolute, 1));
+        frame.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        frame.RowStyles.Add(new RowStyle(SizeType.Absolute, 1));
+
+        var topBorder = BorderStrip();
+        var rightBorder = BorderStrip();
+        var bottomBorder = BorderStrip();
+        var leftBorder = BorderStrip();
+        var borders = new[] { topBorder, rightBorder, bottomBorder, leftBorder };
+
+        var content = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0),
+            Padding = new Padding(7, 0, 7, 0),
+            BackColor = Color.White
         };
 
         void LayoutControl()
         {
-            var innerWidth = Math.Max(24, frame.ClientSize.Width - frame.Padding.Left - frame.Padding.Right);
+            var innerWidth = Math.Max(24, content.ClientSize.Width - content.Padding.Left - content.Padding.Right);
             var preferredHeight = control.PreferredSize.Height;
             if (control is TextBox)
             {
                 preferredHeight = 20;
             }
 
-            var innerHeight = Math.Min(preferredHeight, Math.Max(18, frame.ClientSize.Height - 4));
-            var top = Math.Max(2, (frame.ClientSize.Height - innerHeight) / 2);
-            control.Bounds = new Rectangle(frame.Padding.Left, top, innerWidth, innerHeight);
+            var innerHeight = Math.Min(preferredHeight, Math.Max(18, content.ClientSize.Height - 4));
+            var top = Math.Max(2, (content.ClientSize.Height - innerHeight) / 2);
+            control.Bounds = new Rectangle(content.Padding.Left, top, innerWidth, innerHeight);
         }
 
-        frame.Paint += (_, e) =>
+        void SetBorderColor(Color color)
         {
-            var rect = frame.ClientRectangle;
-            rect.Width -= 1;
-            rect.Height -= 1;
-            using var pen = new Pen(frame.ContainsFocus ? PrimaryBlue : CardBorderColor);
-            e.Graphics.DrawRectangle(pen, rect);
-        };
-        frame.Resize += (_, _) => LayoutControl();
-        control.Enter += (_, _) => frame.Invalidate();
-        control.Leave += (_, _) => frame.Invalidate();
-        frame.Controls.Add(control);
+            foreach (var border in borders)
+            {
+                border.BackColor = color;
+            }
+        }
+
+        content.Resize += (_, _) => LayoutControl();
+        control.Enter += (_, _) => SetBorderColor(PrimaryBlue);
+        control.Leave += (_, _) => SetBorderColor(CardBorderColor);
+        content.Controls.Add(control);
         LayoutControl();
+
+        frame.Controls.Add(topBorder, 0, 0);
+        frame.SetColumnSpan(topBorder, 3);
+        frame.Controls.Add(rightBorder, 2, 1);
+        frame.Controls.Add(bottomBorder, 0, 2);
+        frame.SetColumnSpan(bottomBorder, 3);
+        frame.Controls.Add(leftBorder, 0, 1);
+        frame.Controls.Add(content, 1, 1);
         return frame;
     }
+
+    private static Panel BorderStrip() => new()
+    {
+        Dock = DockStyle.Fill,
+        Margin = new Padding(0),
+        BackColor = CardBorderColor
+    };
 
     private static void StyleInputControl(Control control)
     {
