@@ -97,6 +97,11 @@ public sealed class MainForm : Form
         Maximum = 365,
         Value = 1
     };
+    private readonly CheckBox _autoPushCheck = new()
+    {
+        Text = "Tự động đẩy lên server sau khi lấy log",
+        AutoSize = true
+    };
 
     private readonly DataGridView _historyGrid = Grid();
     private readonly DataGridView _pendingGrid = Grid();
@@ -255,7 +260,7 @@ public sealed class MainForm : Form
 
         var syncButton = new Button
         {
-            Text = "Đồng bộ ngay",
+            Text = "Đẩy dữ liệu",
             Dock = DockStyle.Fill,
             FlatStyle = FlatStyle.Flat,
             BackColor = PrimaryBlue,
@@ -264,7 +269,7 @@ public sealed class MainForm : Form
             Margin = new Padding(0)
         };
         syncButton.FlatAppearance.BorderSize = 0;
-        syncButton.Click += async (_, _) => await SyncNowAsync();
+        syncButton.Click += async (_, _) => await PushNowAsync();
 
         header.Controls.Add(brand, 0, 0);
         header.Controls.Add(status, 1, 0);
@@ -566,7 +571,7 @@ public sealed class MainForm : Form
             Padding = new Padding(16),
             BackColor = ShellBackColor
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 300));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 360));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         var form = FormGrid();
@@ -575,6 +580,7 @@ public sealed class MainForm : Form
         AddRow(form, "Timeout giây", _apiTimeoutInput);
         AddRow(form, "Chu kỳ phút", _syncIntervalInput);
         AddRow(form, "Đọc lùi ngày", _readBackDaysInput);
+        AddRow(form, "Tự động đẩy", _autoPushCheck);
 
         var actions = new FlowLayoutPanel
         {
@@ -689,6 +695,11 @@ public sealed class MainForm : Form
         searchButton.Height = 32;
         searchButton.Margin = new Padding(0, 20, 8, 0);
         filters.Controls.Add(searchButton);
+        var pushButton = Button("Đẩy dữ liệu", async (_, _) => await PushNowAsync());
+        pushButton.Width = 120;
+        pushButton.Height = 32;
+        pushButton.Margin = new Padding(0, 20, 8, 0);
+        filters.Controls.Add(pushButton);
         filterContent.Controls.Add(filters, 0, 1);
 
         var filterCard = CardPanel(new Padding(14), new Padding(0, 0, 0, 12));
@@ -740,6 +751,8 @@ public sealed class MainForm : Form
             Dock = DockStyle.Fill,
             Padding = new Padding(0, 8, 0, 0)
         };
+        actions.Controls.Add(Button("Lấy log ngay", async (_, _) => await PollNowAsync()));
+        actions.Controls.Add(Button("Đẩy dữ liệu", async (_, _) => await PushNowAsync()));
         actions.Controls.Add(Button("Cài driver", async (_, _) => await InstallDeviceDriverAsync()));
         actions.Controls.Add(Button("Cài/Cập nhật Service", async (_, _) => await InstallServiceAsync()));
         actions.Controls.Add(Button("Restart Service", async (_, _) => await RestartServiceAsync()));
@@ -788,14 +801,26 @@ public sealed class MainForm : Form
         return layout;
     }
 
-    private async Task SyncNowAsync()
+    private async Task PollNowAsync()
     {
         SaveApiSettingsFromForm(showMessage: false);
-        await RunBusyAsync("Đang đồng bộ...", async () =>
+        await RunBusyAsync("Đang lấy log...", async () =>
         {
-            AppendOutput("Bắt đầu đồng bộ thủ công.");
-            var result = await _syncEngine.RunOnceAsync(CancellationToken.None, AppendOutput);
-            AppendOutput($"{result.Message} Đọc={result.TotalRead}, gửi={result.TotalSent}, lỗi={result.TotalFailed}, pending={result.PendingCreated}.");
+            AppendOutput("Bắt đầu lấy log từ máy chấm công.");
+            var result = await _syncEngine.PollDevicesAsync(CancellationToken.None, AppendOutput);
+            AppendOutput($"{result.Message} Đọc={result.TotalRead}, lỗi={result.TotalFailed}, mới chờ đẩy={result.PendingCreated}, tổng chờ={_store.GetPendingLogCount()}.");
+            RefreshDynamicData();
+        });
+    }
+
+    private async Task PushNowAsync()
+    {
+        SaveApiSettingsFromForm(showMessage: false);
+        await RunBusyAsync("Đang đẩy dữ liệu...", async () =>
+        {
+            AppendOutput("Bắt đầu đẩy dữ liệu chờ lên server.");
+            var result = await _syncEngine.PushPendingAsync(CancellationToken.None, AppendOutput);
+            AppendOutput($"{result.Message} Gửi={result.TotalSent}, lỗi={result.TotalFailed}, còn chờ={result.PendingCreated}.");
             RefreshDynamicData();
         });
     }
@@ -1087,6 +1112,7 @@ public sealed class MainForm : Form
         _apiTimeoutInput.Value = Math.Clamp(settings.TimeoutSeconds, 1, 300);
         _syncIntervalInput.Value = Math.Clamp(_store.GetSyncIntervalMinutes(), 1, 1440);
         _readBackDaysInput.Value = Math.Clamp(_store.GetReadBackDays(), 0, 365);
+        _autoPushCheck.Checked = _store.GetAutoPushEnabled();
         _searchFromDate.Value = DateTime.Today.AddDays(-Math.Max(1, (int)_readBackDaysInput.Value));
         _searchToDate.Value = DateTime.Today;
     }
@@ -1094,7 +1120,7 @@ public sealed class MainForm : Form
     private void SaveApiSettingsFromForm(bool showMessage = true)
     {
         _store.SaveApiSettings(ReadApiSettingsFromForm());
-        _store.SaveSyncSettings((int)_syncIntervalInput.Value, (int)_readBackDaysInput.Value);
+        _store.SaveSyncSettings((int)_syncIntervalInput.Value, (int)_readBackDaysInput.Value, _autoPushCheck.Checked);
         RefreshOverview();
 
         if (showMessage)
@@ -1800,13 +1826,49 @@ public sealed class MainForm : Form
             Time = FormatDateTimeText(log.StartedAt),
             Location = string.IsNullOrWhiteSpace(device?.StoreCode) ? log.DeviceId : device.StoreCode,
             IpAddress = device?.IpAddress ?? string.Empty,
-            Content = log.TotalSent > 0 ? "Day log" : "Tai log",
+            Content = GetContent(log),
             FromDate = "",
             ToDate = "",
             Result = TranslateStatus(log.Status),
-            Data = $"{log.TotalRead} logs",
+            Data = GetData(log),
             Note = log.ErrorMessage
         };
+
+        private static string GetContent(SyncLog log)
+        {
+            if (log.TotalRead > 0 && log.TotalSent > 0)
+            {
+                return "Lấy và đẩy log";
+            }
+
+            if (log.TotalSent > 0)
+            {
+                return "Đẩy log";
+            }
+
+            return log.TotalRead > 0 ? "Lấy log" : "Kiểm tra";
+        }
+
+        private static string GetData(SyncLog log)
+        {
+            var parts = new List<string>();
+            if (log.TotalRead > 0)
+            {
+                parts.Add($"{log.TotalRead} đọc");
+            }
+
+            if (log.TotalSent > 0)
+            {
+                parts.Add($"{log.TotalSent} gửi");
+            }
+
+            if (log.TotalFailed > 0)
+            {
+                parts.Add($"{log.TotalFailed} lỗi");
+            }
+
+            return parts.Count == 0 ? "0 log" : string.Join(", ", parts);
+        }
     }
 
     private sealed class DeviceHomeRow

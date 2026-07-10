@@ -31,17 +31,34 @@ public sealed class ServiceWorker : BackgroundService
             try
             {
                 var engine = new SyncEngine(_store, _deviceClient);
-                var result = await engine.RunOnceAsync(
+                var pollResult = await engine.PollDevicesAsync(
                     stoppingToken,
                     message => _logger.LogInformation("{Message}", message));
 
                 _logger.LogInformation(
-                    "Sync finished. Success={Success}, Read={Read}, Sent={Sent}, Failed={Failed}, Pending={Pending}",
-                    result.Success,
-                    result.TotalRead,
-                    result.TotalSent,
-                    result.TotalFailed,
-                    result.PendingCreated);
+                    "Poll finished. Success={Success}, Read={Read}, Failed={Failed}, Pending={Pending}",
+                    pollResult.Success,
+                    pollResult.TotalRead,
+                    pollResult.TotalFailed,
+                    pollResult.PendingCreated);
+
+                if (_store.GetAutoPushEnabled())
+                {
+                    var pushResult = await engine.PushPendingAsync(
+                        stoppingToken,
+                        message => _logger.LogInformation("{Message}", message));
+
+                    _logger.LogInformation(
+                        "Auto push finished. Success={Success}, Sent={Sent}, Failed={Failed}, Pending={Pending}",
+                        pushResult.Success,
+                        pushResult.TotalSent,
+                        pushResult.TotalFailed,
+                        pushResult.PendingCreated);
+                }
+                else
+                {
+                    _logger.LogInformation("Auto push is disabled. Pending logs will wait for manual push.");
+                }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

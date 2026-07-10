@@ -89,6 +89,7 @@ public sealed class AttendanceSyncStore
         SeedSetting(connection, "api_timeout_seconds", "30");
         SeedSetting(connection, "sync_interval_minutes", "5");
         SeedSetting(connection, "read_back_days", "1");
+        SeedSetting(connection, "auto_push_enabled", "false");
     }
 
     private static void EnsureDeviceColumns(SqliteConnection connection)
@@ -152,10 +153,18 @@ public sealed class AttendanceSyncStore
 
     public int GetReadBackDays() => Math.Clamp(GetSettingInt("read_back_days", 1), 0, 365);
 
+    public bool GetAutoPushEnabled() => GetSettingBool("auto_push_enabled", fallback: false);
+
     public void SaveSyncSettings(int intervalMinutes, int readBackDays)
+    {
+        SaveSyncSettings(intervalMinutes, readBackDays, GetAutoPushEnabled());
+    }
+
+    public void SaveSyncSettings(int intervalMinutes, int readBackDays, bool autoPushEnabled)
     {
         SaveSetting("sync_interval_minutes", Math.Clamp(intervalMinutes, 1, 1440).ToString(CultureInfo.InvariantCulture));
         SaveSetting("read_back_days", Math.Clamp(readBackDays, 0, 365).ToString(CultureInfo.InvariantCulture));
+        SaveSetting("auto_push_enabled", autoPushEnabled ? "true" : "false");
     }
 
     public IReadOnlyList<Device> GetDevices(bool activeOnly = false)
@@ -295,6 +304,8 @@ public sealed class AttendanceSyncStore
             LastSyncAt = ScalarString("SELECT COALESCE(MAX(finished_at), '') FROM sync_logs")
         };
     }
+
+    public int GetPendingLogCount() => ScalarInt("SELECT COUNT(*) FROM pending_logs");
 
     public IReadOnlyList<SyncLog> GetRecentSyncLogs(int limit = 100)
     {
@@ -583,6 +594,19 @@ public sealed class AttendanceSyncStore
             : fallback;
     }
 
+    private bool GetSettingBool(string key, bool fallback)
+    {
+        var value = GetSetting(key);
+        if (bool.TryParse(value, out var parsed))
+        {
+            return parsed;
+        }
+
+        return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number)
+            ? number != 0
+            : fallback;
+    }
+
     private void SaveSetting(string key, string value)
     {
         using var connection = OpenConnection();
@@ -705,8 +729,6 @@ public sealed class AttendanceSyncStore
                 store_code = excluded.store_code,
                 verify_type = excluded.verify_type,
                 raw_payload = excluded.raw_payload,
-                retry_count = retry_count + 1,
-                last_error = excluded.last_error,
                 updated_at = excluded.updated_at;
             """;
         command.Parameters.AddWithValue("$device_id", log.DeviceId);

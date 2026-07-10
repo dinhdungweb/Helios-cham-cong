@@ -21,96 +21,195 @@ public sealed class SyncEngine
         CancellationToken cancellationToken,
         Action<string>? progress = null)
     {
+        var pollResult = await PollDevicesAsync(cancellationToken, progress);
+        var pushResult = await PushPendingAsync(cancellationToken, progress);
+
+        return new SyncRunResult
+        {
+            DeviceCount = Math.Max(pollResult.DeviceCount, pushResult.DeviceCount),
+            TotalRead = pollResult.TotalRead,
+            TotalSent = pushResult.TotalSent,
+            TotalInserted = pushResult.TotalInserted,
+            TotalDuplicated = pushResult.TotalDuplicated,
+            TotalFailed = pollResult.TotalFailed + pushResult.TotalFailed,
+            PendingCreated = pushResult.PendingCreated,
+            Success = pollResult.Success && pushResult.Success,
+            Message = pollResult.Success && pushResult.Success
+                ? "Da lay log va day du lieu xong."
+                : "Da chay xong nhung co loi can kiem tra."
+        };
+    }
+
+    public async Task<SyncRunResult> PollDevicesAsync(
+        CancellationToken cancellationToken,
+        Action<string>? progress = null)
+    {
         _store.Initialize();
 
         var devices = _store.GetDevices(activeOnly: true);
         if (devices.Count == 0)
         {
-            progress?.Invoke("Chưa có thiết bị active.");
+            progress?.Invoke("Chua co thiet bi active.");
             return new SyncRunResult
             {
                 Success = true,
-                Message = "Chưa có thiết bị active."
+                Message = "Chua co thiet bi active."
             };
         }
 
-        var apiClient = new AttendanceApiClient(_store.GetApiSettings());
         var readBackDays = _store.GetReadBackDays();
-
+        var pendingBefore = _store.GetPendingLogCount();
         var totalRead = 0;
-        var totalSent = 0;
-        var totalInserted = 0;
-        var totalDuplicated = 0;
         var totalFailed = 0;
-        var totalPending = 0;
         var allSucceeded = true;
 
         foreach (var device in devices)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            progress?.Invoke($"Đồng bộ {device.DeviceId}...");
+            progress?.Invoke($"Lay log {device.DeviceId}...");
 
             var startedAt = DateTimeText.Now();
             var deviceRead = 0;
-            var deviceSent = 0;
-            var deviceInserted = 0;
-            var deviceDuplicated = 0;
             var deviceFailed = 0;
             var status = "success";
             var errorMessage = string.Empty;
 
             try
             {
-                var pendingResult = await SendPendingAsync(device, apiClient, cancellationToken, progress);
-                deviceSent += pendingResult.Sent;
-                deviceInserted += pendingResult.Inserted;
-                deviceDuplicated += pendingResult.Duplicated;
-                deviceFailed += pendingResult.Failed;
-                totalPending += pendingResult.PendingCreated;
-
                 var fromTime = GetReadFromTime(device, readBackDays);
                 var logs = await _deviceClient.ReadLogsAsync(device, fromTime, cancellationToken);
                 deviceRead = logs.Count;
-                progress?.Invoke($"{device.DeviceId}: đọc được {deviceRead} log từ {DateTimeText.Format(fromTime)}.");
+                progress?.Invoke($"{device.DeviceId}: doc duoc {deviceRead} log tu {DateTimeText.Format(fromTime)}.");
 
-                foreach (var batch in Batch(logs, BatchSize))
+                if (logs.Count > 0)
                 {
-                    var sendResult = await apiClient.SendAsync(device, batch, cancellationToken);
-                    ApplyApiErrors(device, batch, sendResult);
+                    _store.UpsertPendingLogs(logs, "Cho day len server.");
+                    progress?.Invoke($"{device.DeviceId}: da luu {logs.Count} log vao danh sach cho day.");
+                }
 
-                    deviceSent += sendResult.Inserted + sendResult.Duplicated;
-                    deviceInserted += sendResult.Inserted;
-                    deviceDuplicated += sendResult.Duplicated;
-                    deviceFailed += sendResult.Failed;
+                _store.MarkDeviceSuccess(device.DeviceId, DateTimeText.Now());
+            }
+            catch (Exception ex)
+            {
+                allSucceeded = false;
+                status = "error";
+                errorMessage = ex.Message;
+                deviceFailed = 1;
+                _store.MarkDeviceError(device.DeviceId, ex.Message);
+                _store.InsertAppError("POLL_ERROR", device.DeviceId, ex.Message, ex.ToString());
+                progress?.Invoke($"{device.DeviceId}: loi lay log {ex.Message}");
+            }
+            finally
+            {
+                _store.InsertSyncLog(new SyncLog
+                {
+                    DeviceId = device.DeviceId,
+                    StartedAt = startedAt,
+                    FinishedAt = DateTimeText.Now(),
+                    Status = status,
+                    TotalRead = deviceRead,
+                    TotalSent = 0,
+                    TotalInserted = 0,
+                    TotalDuplicated = 0,
+                    TotalFailed = deviceFailed,
+                    ErrorMessage = errorMessage
+                });
 
-                    if (!sendResult.Success)
+                totalRead += deviceRead;
+                totalFailed += deviceFailed;
+            }
+        }
+
+        var pendingAfter = _store.GetPendingLogCount();
+
+        return new SyncRunResult
+        {
+            DeviceCount = devices.Count,
+            TotalRead = totalRead,
+            TotalSent = 0,
+            TotalInserted = 0,
+            TotalDuplicated = 0,
+            TotalFailed = totalFailed,
+            PendingCreated = Math.Max(0, pendingAfter - pendingBefore),
+            Success = allSucceeded,
+            Message = allSucceeded ? "Lay log hoan tat." : "Lay log xong nhung co loi can kiem tra."
+        };
+    }
+
+    public async Task<SyncRunResult> PushPendingAsync(
+        CancellationToken cancellationToken,
+        Action<string>? progress = null)
+    {
+        _store.Initialize();
+
+        var devices = _store.GetDevices(activeOnly: true);
+        if (devices.Count == 0)
+        {
+            progress?.Invoke("Chua co thiet bi active.");
+            return new SyncRunResult
+            {
+                Success = true,
+                Message = "Chua co thiet bi active."
+            };
+        }
+
+        var apiClient = new AttendanceApiClient(_store.GetApiSettings());
+        var totalSent = 0;
+        var totalInserted = 0;
+        var totalDuplicated = 0;
+        var totalFailed = 0;
+        var allSucceeded = true;
+
+        foreach (var device in devices)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var startedAt = DateTimeText.Now();
+            var status = "success";
+            var errorMessage = string.Empty;
+            var deviceSent = 0;
+            var deviceInserted = 0;
+            var deviceDuplicated = 0;
+            var deviceFailed = 0;
+
+            try
+            {
+                var attemptedAny = false;
+
+                while (true)
+                {
+                    var pendingResult = await SendPendingAsync(device, apiClient, cancellationToken, progress);
+                    if (pendingResult.Attempted == 0)
+                    {
+                        if (!attemptedAny)
+                        {
+                            progress?.Invoke($"{device.DeviceId}: khong co log cho day.");
+                        }
+
+                        break;
+                    }
+
+                    attemptedAny = true;
+                    deviceSent += pendingResult.Sent;
+                    deviceInserted += pendingResult.Inserted;
+                    deviceDuplicated += pendingResult.Duplicated;
+                    deviceFailed += pendingResult.Failed;
+
+                    if (!pendingResult.Success)
                     {
                         allSucceeded = false;
-                        status = "error";
-                        errorMessage = sendResult.Message;
-                        _store.UpsertPendingLogs(batch, sendResult.Message);
-                        totalPending += batch.Count;
-                        progress?.Invoke($"{device.DeviceId}: API lỗi, đã đưa {batch.Count} log vào pending.");
+                        status = deviceSent > 0 ? "warning" : "error";
+                        errorMessage = pendingResult.Message;
+                        _store.MarkDeviceError(device.DeviceId, pendingResult.Message);
+                        break;
                     }
-                    else
-                    {
-                        var failedLogs = FindFailedLogs(batch, sendResult.Errors).ToArray();
-                        if (failedLogs.Length > 0)
-                        {
-                            status = status == "error" ? status : "warning";
-                            _store.UpsertPendingLogs(failedLogs, "API trả lỗi mapping/dữ liệu.");
-                            totalPending += failedLogs.Length;
-                        }
-                    }
+
+                    cancellationToken.ThrowIfCancellationRequested();
                 }
 
-                if (status != "error")
+                if (status == "success" && attemptedAny)
                 {
                     _store.MarkDeviceSuccess(device.DeviceId, DateTimeText.Now());
-                }
-                else
-                {
-                    _store.MarkDeviceError(device.DeviceId, errorMessage);
                 }
             }
             catch (Exception ex)
@@ -118,20 +217,20 @@ public sealed class SyncEngine
                 allSucceeded = false;
                 status = "error";
                 errorMessage = ex.Message;
+                deviceFailed = Math.Max(1, deviceFailed);
                 _store.MarkDeviceError(device.DeviceId, ex.Message);
-                _store.InsertAppError("SYNC_ERROR", device.DeviceId, ex.Message, ex.ToString());
-                progress?.Invoke($"{device.DeviceId}: lỗi {ex.Message}");
+                _store.InsertAppError("PUSH_ERROR", device.DeviceId, ex.Message, ex.ToString());
+                progress?.Invoke($"{device.DeviceId}: loi day du lieu {ex.Message}");
             }
             finally
             {
-                var finishedAt = DateTimeText.Now();
                 _store.InsertSyncLog(new SyncLog
                 {
                     DeviceId = device.DeviceId,
                     StartedAt = startedAt,
-                    FinishedAt = finishedAt,
+                    FinishedAt = DateTimeText.Now(),
                     Status = status,
-                    TotalRead = deviceRead,
+                    TotalRead = 0,
                     TotalSent = deviceSent,
                     TotalInserted = deviceInserted,
                     TotalDuplicated = deviceDuplicated,
@@ -139,7 +238,6 @@ public sealed class SyncEngine
                     ErrorMessage = errorMessage
                 });
 
-                totalRead += deviceRead;
                 totalSent += deviceSent;
                 totalInserted += deviceInserted;
                 totalDuplicated += deviceDuplicated;
@@ -147,17 +245,19 @@ public sealed class SyncEngine
             }
         }
 
+        var remainingPending = _store.GetPendingLogCount();
+
         return new SyncRunResult
         {
             DeviceCount = devices.Count,
-            TotalRead = totalRead,
+            TotalRead = 0,
             TotalSent = totalSent,
             TotalInserted = totalInserted,
             TotalDuplicated = totalDuplicated,
             TotalFailed = totalFailed,
-            PendingCreated = totalPending,
+            PendingCreated = remainingPending,
             Success = allSucceeded,
-            Message = allSucceeded ? "Đồng bộ hoàn tất." : "Đồng bộ xong nhưng có lỗi cần kiểm tra."
+            Message = allSucceeded ? "Day du lieu hoan tat." : "Day du lieu xong nhung co loi can kiem tra."
         };
     }
 
@@ -173,7 +273,7 @@ public sealed class SyncEngine
             return new PendingSendResult();
         }
 
-        progress?.Invoke($"{device.DeviceId}: gửi lại {pending.Count} pending log.");
+        progress?.Invoke($"{device.DeviceId}: day {pending.Count} log cho len server.");
         var punches = pending.Select(item => item.ToPunch()).ToArray();
         var result = await apiClient.SendAsync(device, punches, cancellationToken);
         ApplyApiErrors(device, punches, result);
@@ -183,6 +283,9 @@ public sealed class SyncEngine
             _store.MarkPendingLogsFailed(pending.Select(item => item.Id), result.Message);
             return new PendingSendResult
             {
+                Attempted = pending.Count,
+                Success = false,
+                Message = result.Message,
                 Failed = pending.Count,
                 PendingCreated = pending.Count
             };
@@ -199,10 +302,13 @@ public sealed class SyncEngine
             .ToArray();
 
         _store.DeletePendingLogs(sentIds);
-        _store.MarkPendingLogsFailed(failedIds, "API trả lỗi mapping/dữ liệu.");
+        _store.MarkPendingLogsFailed(failedIds, "API tra loi mapping/du lieu.");
 
         return new PendingSendResult
         {
+            Attempted = pending.Count,
+            Success = failedIds.Length == 0,
+            Message = failedIds.Length == 0 ? string.Empty : "API tra loi mapping/du lieu.",
             Sent = result.Inserted + result.Duplicated,
             Inserted = result.Inserted,
             Duplicated = result.Duplicated,
@@ -243,13 +349,6 @@ public sealed class SyncEngine
         return lastSync.AddDays(-readBackDays);
     }
 
-    private static IEnumerable<AttendancePunch> FindFailedLogs(
-        IReadOnlyList<AttendancePunch> logs,
-        IReadOnlyList<ApiLogError> errors)
-    {
-        return logs.Where(log => errors.Any(error => MatchesError(log, error)));
-    }
-
     private static bool MatchesError(AttendancePunch log, ApiLogError error)
     {
         if (!string.Equals(log.EmployeeCode, error.EmployeeCode, StringComparison.OrdinalIgnoreCase))
@@ -261,16 +360,14 @@ public sealed class SyncEngine
         return Math.Abs((log.PunchTime - errorPunchTime).TotalSeconds) < 1;
     }
 
-    private static IEnumerable<IReadOnlyList<T>> Batch<T>(IReadOnlyList<T> items, int batchSize)
-    {
-        for (var index = 0; index < items.Count; index += batchSize)
-        {
-            yield return items.Skip(index).Take(batchSize).ToArray();
-        }
-    }
-
     private sealed class PendingSendResult
     {
+        public int Attempted { get; init; }
+
+        public bool Success { get; init; } = true;
+
+        public string Message { get; init; } = string.Empty;
+
         public int Sent { get; init; }
 
         public int Inserted { get; init; }
