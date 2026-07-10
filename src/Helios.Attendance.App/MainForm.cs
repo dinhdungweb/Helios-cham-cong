@@ -187,16 +187,25 @@ public sealed class MainForm : Form
     private TabPage BuildDevicesTab()
     {
         var tab = new TabPage("Thiết bị");
-        var split = new SplitContainer
+        var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            FixedPanel = FixedPanel.Panel2,
-            SplitterDistance = 720,
+            ColumnCount = 2,
+            RowCount = 1,
             Padding = new Padding(12)
         };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 380));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         _devicesGrid.SelectionChanged += (_, _) => LoadSelectedDeviceIntoForm();
-        split.Panel1.Controls.Add(_devicesGrid);
+        var gridPanel = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Padding = new Padding(0, 0, 12, 0)
+        };
+        gridPanel.Controls.Add(_devicesGrid);
+        layout.Controls.Add(gridPanel, 0, 0);
 
         var form = FormGrid();
         AddRow(form, "Device ID", _deviceIdText);
@@ -209,7 +218,7 @@ public sealed class MainForm : Form
 
         var buttons = new FlowLayoutPanel
         {
-            Dock = DockStyle.Bottom,
+            Dock = DockStyle.Fill,
             AutoSize = true,
             Padding = new Padding(0, 10, 0, 0)
         };
@@ -218,17 +227,27 @@ public sealed class MainForm : Form
         buttons.Controls.Add(Button("Xóa", (_, _) => DeleteSelectedDevice()));
         buttons.Controls.Add(Button("Làm mới", (_, _) => RefreshDevices()));
 
+        var sideLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2
+        };
+        sideLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        sideLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        sideLayout.Controls.Add(form, 0, 0);
+        sideLayout.Controls.Add(buttons, 0, 1);
+
         var group = new GroupBox
         {
             Text = "Cấu hình máy",
             Dock = DockStyle.Fill,
             Padding = new Padding(10)
         };
-        group.Controls.Add(form);
-        group.Controls.Add(buttons);
-        split.Panel2.Controls.Add(group);
+        group.Controls.Add(sideLayout);
+        layout.Controls.Add(group, 1, 0);
 
-        tab.Controls.Add(split);
+        tab.Controls.Add(layout);
         return tab;
     }
 
