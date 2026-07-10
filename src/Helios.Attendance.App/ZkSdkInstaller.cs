@@ -76,12 +76,16 @@ public static class ZkSdkInstaller
 
         try
         {
+            var workingDirectory = Path.GetDirectoryName(dllPath);
             using var process = Process.Start(new ProcessStartInfo
             {
                 FileName = GetRegsvr32Path(),
                 Arguments = $"/s \"{dllPath}\"",
                 UseShellExecute = true,
                 Verb = ServiceInstaller.IsAdministrator() ? string.Empty : "runas",
+                WorkingDirectory = string.IsNullOrWhiteSpace(workingDirectory)
+                    ? AppContext.BaseDirectory
+                    : workingDirectory,
                 WindowStyle = ProcessWindowStyle.Hidden
             });
 
@@ -130,7 +134,7 @@ public static class ZkSdkInstaller
         {
             1 => "Cài SDK ZK không thành công: tham số cài driver không hợp lệ.",
             2 => "Cài SDK ZK không thành công: Windows không khởi tạo được COM/OLE.",
-            3 => "Cài SDK ZK không thành công: Windows không load được zkemkeeper.dll. Thường là do thiếu các file DLL đi kèm trong bộ SDK, chọn nhầm DLL 32/64-bit, hoặc file driver bị chặn. Hãy copy cả thư mục SDK/driver chứ không chỉ mỗi zkemkeeper.dll, rồi chọn lại file trong thư mục đó.",
+            3 => "Cài SDK ZK không thành công: Windows không load được zkemkeeper.dll. Nếu máy đã cài phần mềm chấm công, hãy chọn đúng zkemkeeper.dll nằm trong thư mục cài phần mềm đó, không chọn file copy rời. Nếu vẫn lỗi, phần mềm đó có thể dùng driver riêng không phải zkemkeeper COM, hoặc bộ driver thiếu file phụ thuộc.",
             4 => "Cài SDK ZK không thành công: file DLL không có hàm đăng ký COM DllRegisterServer. Có thể chọn nhầm file DLL.",
             5 => "Cài SDK ZK không thành công: DllRegisterServer trả lỗi. Hãy chạy app bằng quyền Administrator hoặc dùng bộ SDK khác đúng phiên bản.",
             _ => $"Cài SDK ZK không thành công. Mã lỗi: {exitCode}. File: {dllPath}"
