@@ -146,12 +146,24 @@ public static class ZkSdkInstaller
         var baseDirectory = AppContext.BaseDirectory;
         yield return Path.Combine(baseDirectory, DllFileName);
         yield return Path.Combine(baseDirectory, "drivers", DllFileName);
+        yield return Path.Combine(baseDirectory, "drivers", "zk", DllFileName);
+        yield return Path.Combine(baseDirectory, "drivers", "zkteco", DllFileName);
+        yield return Path.Combine(baseDirectory, "drivers", "dtc", DllFileName);
+        yield return Path.Combine(baseDirectory, "drivers", "ronald-jack", DllFileName);
         yield return Path.Combine(baseDirectory, "sdk", DllFileName);
+        yield return Path.Combine(baseDirectory, "sdk", "zk", DllFileName);
+        yield return Path.Combine(baseDirectory, "sdk", "dtc", DllFileName);
 
         var currentDirectory = Environment.CurrentDirectory;
         yield return Path.Combine(currentDirectory, DllFileName);
         yield return Path.Combine(currentDirectory, "drivers", DllFileName);
+        yield return Path.Combine(currentDirectory, "drivers", "zk", DllFileName);
+        yield return Path.Combine(currentDirectory, "drivers", "zkteco", DllFileName);
+        yield return Path.Combine(currentDirectory, "drivers", "dtc", DllFileName);
+        yield return Path.Combine(currentDirectory, "drivers", "ronald-jack", DllFileName);
         yield return Path.Combine(currentDirectory, "sdk", DllFileName);
+        yield return Path.Combine(currentDirectory, "sdk", "zk", DllFileName);
+        yield return Path.Combine(currentDirectory, "sdk", "dtc", DllFileName);
     }
 
     private static IEnumerable<string> GetSearchRoots()

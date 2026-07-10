@@ -9,6 +9,14 @@
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="Drivers\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+      <TargetPath>drivers\%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
+    </Content>
+  </ItemGroup>
+
   <PropertyGroup>
     <AssemblyName>HeliosAttendanceSync</AssemblyName>
     <ApplicationIcon>Assets\hoffice.ico</ApplicationIcon>

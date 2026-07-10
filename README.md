@@ -81,4 +81,19 @@ App đọc máy ZK/Ronald Jack qua ZK SDK COM `zkemkeeper.CZKEM`.
 
 Máy cài app cần có driver ZK SDK/`zkemkeeper.dll` đã được đăng ký COM. Nếu app báo thiếu `zkemkeeper.CZKEM`, bấm `Cài driver`. Để triển khai dễ hơn, có thể đặt `zkemkeeper.dll` cùng thư mục với `HeliosAttendanceSync.exe` hoặc trong thư mục `drivers` cạnh file exe.
 
+## Đóng gói driver sẵn
+
+Project có sẵn thư mục `src\Helios.Attendance.App\Drivers` và khi publish sẽ copy thành thư mục `drivers` cạnh `HeliosAttendanceSync.exe`.
+
+Nếu có quyền phân phối SDK của nhà cung cấp, copy cả thư mục driver vào một trong các vị trí:
+
+```text
+src\Helios.Attendance.App\Drivers\zk
+src\Helios.Attendance.App\Drivers\dtc
+src\Helios.Attendance.App\Drivers\zkteco
+src\Helios.Attendance.App\Drivers\ronald-jack
+```
+
+Không chỉ copy riêng `zkemkeeper.dll`; hãy copy cả các DLL đi kèm trong cùng thư mục SDK. Các file DLL/OCX proprietary đang được `.gitignore` để tránh push nhầm lên GitHub.
+
 Fallback dữ liệu mẫu vẫn còn cho môi trường test: copy `samples\sample_logs.csv` vào `C:\ProgramData\HELIOS Attendance Sync\sample_logs.csv`.

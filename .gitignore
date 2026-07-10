@@ -8,3 +8,5 @@ publish/
 *.suo
 *.log
 TestResults/
+src/Helios.Attendance.App/Drivers/**/*.dll
+src/Helios.Attendance.App/Drivers/**/*.ocx
