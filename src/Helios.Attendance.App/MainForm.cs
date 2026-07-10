@@ -1618,20 +1618,8 @@ public sealed class MainForm : Form
     {
         StyleInputControl(control);
 
-        var frame = new Panel
-        {
-            Dock = DockStyle.Fill,
-            Height = 32,
-            MinimumSize = new Size(0, 32),
-            Margin = new Padding(0, 2, 0, 2),
-            Padding = new Padding(1),
-            BackColor = CardBorderColor,
-            TabStop = false
-        };
-
         var content = new Panel
         {
-            Dock = DockStyle.Fill,
             Margin = new Padding(0),
             Padding = new Padding(7, 0, 7, 0),
             BackColor = Color.White
@@ -1652,11 +1640,18 @@ public sealed class MainForm : Form
         }
 
         content.Resize += (_, _) => LayoutControl();
-        control.Enter += (_, _) => frame.BackColor = PrimaryBlue;
-        control.Leave += (_, _) => frame.BackColor = CardBorderColor;
+        var frame = new InputBorderFrame(content)
+        {
+            Dock = DockStyle.Fill,
+            Height = 32,
+            MinimumSize = new Size(0, 32),
+            Margin = new Padding(0, 2, 0, 2)
+        };
+
+        control.Enter += (_, _) => frame.Active = true;
+        control.Leave += (_, _) => frame.Active = false;
         content.Controls.Add(control);
         LayoutControl();
-        frame.Controls.Add(content);
         return frame;
     }
 
@@ -1717,6 +1712,73 @@ public sealed class MainForm : Form
         LayoutControl();
         frame.Controls.Add(content);
         return frame;
+    }
+
+    private sealed class InputBorderFrame : Panel
+    {
+        private readonly Control _content;
+        private bool _active;
+
+        public InputBorderFrame(Control content)
+        {
+            _content = content;
+            BackColor = Color.White;
+            TabStop = false;
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.UserPaint, true);
+            Controls.Add(_content);
+            LayoutContent();
+        }
+
+        public bool Active
+        {
+            get => _active;
+            set
+            {
+                if (_active == value)
+                {
+                    return;
+                }
+
+                _active = value;
+                Invalidate();
+            }
+        }
+
+        protected override void OnResize(EventArgs eventargs)
+        {
+            base.OnResize(eventargs);
+            LayoutContent();
+        }
+
+        protected override void OnLayout(LayoutEventArgs levent)
+        {
+            base.OnLayout(levent);
+            LayoutContent();
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            var width = ClientSize.Width;
+            var height = ClientSize.Height;
+            if (width <= 0 || height <= 0)
+            {
+                return;
+            }
+
+            using var brush = new SolidBrush(Active ? PrimaryBlue : CardBorderColor);
+            e.Graphics.FillRectangle(brush, 0, 0, width, 1);
+            e.Graphics.FillRectangle(brush, 0, height - 1, width, 1);
+            e.Graphics.FillRectangle(brush, 0, 0, 1, height);
+            e.Graphics.FillRectangle(brush, width - 1, 0, 1, height);
+        }
+
+        private void LayoutContent()
+        {
+            var width = Math.Max(0, ClientSize.Width - 2);
+            var height = Math.Max(0, ClientSize.Height - 2);
+            _content.Bounds = new Rectangle(1, 1, width, height);
+        }
     }
 
     private static void StyleInputControl(Control control)
