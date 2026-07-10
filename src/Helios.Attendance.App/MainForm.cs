@@ -702,7 +702,7 @@ public sealed class MainForm : Form
                 ForeColor = MutedTextColor,
                 TextAlign = ContentAlignment.MiddleLeft
             }, 0, 0);
-            field.Controls.Add(InputFrame(control), 0, 1);
+            field.Controls.Add(SearchInputFrame(control), 0, 1);
             filters.Controls.Add(field);
         }
 
@@ -1647,40 +1647,76 @@ public sealed class MainForm : Form
             Height = 32,
             MinimumSize = new Size(0, 32),
             Margin = new Padding(0, 2, 0, 2),
-            Padding = new Padding(2),
-            BackColor = CardBorderColor,
+            Padding = new Padding(8, 0, 8, 0),
+            BackColor = Color.White,
             TabStop = false
-        };
-
-        var content = new Panel
-        {
-            Dock = DockStyle.Fill,
-            Margin = new Padding(0),
-            Padding = new Padding(7, 0, 7, 0),
-            BackColor = Color.White
         };
 
         void LayoutControl()
         {
-            var innerWidth = Math.Max(24, content.ClientSize.Width - content.Padding.Left - content.Padding.Right);
+            var innerWidth = Math.Max(24, frame.ClientSize.Width - frame.Padding.Left - frame.Padding.Right);
             var preferredHeight = control.PreferredSize.Height;
             if (control is TextBox)
             {
                 preferredHeight = 20;
             }
 
-            var innerHeight = Math.Min(preferredHeight, Math.Max(18, content.ClientSize.Height - 4));
-            var top = Math.Max(2, (content.ClientSize.Height - innerHeight) / 2);
-            control.Bounds = new Rectangle(content.Padding.Left, top, innerWidth, innerHeight);
+            var innerHeight = Math.Min(preferredHeight, Math.Max(18, frame.ClientSize.Height - 4));
+            var top = Math.Max(2, (frame.ClientSize.Height - innerHeight) / 2);
+            control.Bounds = new Rectangle(frame.Padding.Left, top, innerWidth, innerHeight);
         }
 
-        content.Resize += (_, _) => LayoutControl();
-        control.Enter += (_, _) => frame.BackColor = PrimaryBlue;
-        control.Leave += (_, _) => frame.BackColor = CardBorderColor;
-        content.Controls.Add(control);
+        frame.Paint += (_, e) =>
+        {
+            var rect = frame.ClientRectangle;
+            rect.Width -= 1;
+            rect.Height -= 1;
+            using var pen = new Pen(frame.ContainsFocus ? PrimaryBlue : CardBorderColor);
+            e.Graphics.DrawRectangle(pen, rect);
+        };
+        frame.Resize += (_, _) => LayoutControl();
+        control.Enter += (_, _) => frame.Invalidate();
+        control.Leave += (_, _) => frame.Invalidate();
+        frame.Controls.Add(control);
         LayoutControl();
+        return frame;
+    }
 
-        frame.Controls.Add(content);
+    private static Control SearchInputFrame(Control control)
+    {
+        StyleInputControl(control);
+        if (control is TextBox textBox)
+        {
+            textBox.BorderStyle = BorderStyle.FixedSingle;
+        }
+
+        var frame = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Height = 32,
+            MinimumSize = new Size(0, 32),
+            Margin = new Padding(0, 2, 0, 2),
+            Padding = new Padding(0),
+            BackColor = Color.White,
+            TabStop = false
+        };
+
+        void LayoutControl()
+        {
+            var preferredHeight = control.PreferredSize.Height;
+            if (control is TextBox)
+            {
+                preferredHeight = 24;
+            }
+
+            var height = Math.Min(preferredHeight, Math.Max(22, frame.ClientSize.Height));
+            var top = Math.Max(0, (frame.ClientSize.Height - height) / 2);
+            control.Bounds = new Rectangle(0, top, Math.Max(24, frame.ClientSize.Width), height);
+        }
+
+        frame.Resize += (_, _) => LayoutControl();
+        frame.Controls.Add(control);
+        LayoutControl();
         return frame;
     }
 
