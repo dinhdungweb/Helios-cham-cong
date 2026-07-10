@@ -15,6 +15,7 @@ public sealed class ZkSdkInstallResult
 public static class ZkSdkInstaller
 {
     public const string ProgId = "zkemkeeper.CZKEM";
+    private static readonly string[] ProgIds = [ProgId, "zkemkeeper.ZKEM"];
     private const string DllFileName = "zkemkeeper.dll";
     private const string SdkZipFileName = "sdk.zip";
     private const int MaxVisitedDirectories = 700;
@@ -33,7 +34,7 @@ public static class ZkSdkInstaller
         "chấm"
     ];
 
-    public static bool IsRegistered() => Type.GetTypeFromProgID(ProgId) is not null;
+    public static bool IsRegistered() => ProgIds.Any(progId => Type.GetTypeFromProgID(progId) is not null);
 
     public static string? FindSdkSource() => FindSdkSource(TimeSpan.FromSeconds(3));
 
@@ -237,7 +238,7 @@ public static class ZkSdkInstaller
 
         return IsRegistered()
             ? Success("Đã cài SDK ZK thành công. Hãy bấm Test kết nối lại.")
-            : Fail($"Đã copy và đăng ký SDK từ {displaySource} nhưng Windows vẫn chưa nhận {ProgId}.");
+            : Fail($"Đã copy và đăng ký SDK từ {displaySource} nhưng Windows vẫn chưa nhận {string.Join(" hoặc ", ProgIds)}.");
     }
 
     private static ZkSdkInstallResult RunSdkInstallScript(string sourceDirectory, string targetDirectory)
