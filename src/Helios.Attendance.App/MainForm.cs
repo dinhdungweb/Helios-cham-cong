@@ -53,18 +53,18 @@ public sealed class MainForm : Form
     private readonly TextBox _deviceIdText = new();
     private readonly TextBox _deviceNameText = new();
     private readonly TextBox _storeCodeText = new();
-    private readonly ComboBox _deviceTypeInput = new()
+    private readonly StyledSelectInput _deviceTypeInput = new()
     {
         DropDownStyle = ComboBoxStyle.DropDownList
     };
     private readonly TextBox _ipAddressText = new();
-    private readonly NumericUpDown _portInput = new()
+    private readonly StyledNumberInput _portInput = new()
     {
         Minimum = 1,
         Maximum = 65535,
         Value = 4370
     };
-    private readonly NumericUpDown _passwordInput = new()
+    private readonly StyledNumberInput _passwordInput = new()
     {
         Minimum = 0,
         Maximum = 999999999,
@@ -82,31 +82,31 @@ public sealed class MainForm : Form
     {
         UseSystemPasswordChar = true
     };
-    private readonly NumericUpDown _apiTimeoutInput = new()
+    private readonly StyledNumberInput _apiTimeoutInput = new()
     {
         Minimum = 1,
         Maximum = 300,
         Value = 30
     };
-    private readonly NumericUpDown _syncIntervalInput = new()
+    private readonly StyledNumberInput _syncIntervalInput = new()
     {
         Minimum = 1,
         Maximum = 1440,
         Value = 5
     };
-    private readonly NumericUpDown _pushIntervalInput = new()
+    private readonly StyledNumberInput _pushIntervalInput = new()
     {
         Minimum = 1,
         Maximum = 1440,
         Value = 1
     };
-    private readonly NumericUpDown _pushBatchSizeInput = new()
+    private readonly StyledNumberInput _pushBatchSizeInput = new()
     {
         Minimum = 1,
         Maximum = 5000,
         Value = 200
     };
-    private readonly NumericUpDown _readBackDaysInput = new()
+    private readonly StyledNumberInput _readBackDaysInput = new()
     {
         Minimum = 0,
         Maximum = 365,
@@ -1635,16 +1635,16 @@ public sealed class MainForm : Form
             var backColor = active ? Color.White : FormInputBackColor;
             content.BackColor = backColor;
             control.BackColor = backColor;
-            if (control is SearchDatePicker datePicker)
+            if (control is IStyledInputChrome chrome)
             {
-                datePicker.SetChromeBackColor(backColor);
+                chrome.SetChromeBackColor(backColor);
             }
         }
 
         void LayoutControl()
         {
             border.Bounds = new Rectangle(0, 0, Math.Max(24, frame.ClientSize.Width - 8), frame.ClientSize.Height);
-            if (control is SearchDatePicker)
+            if (control is IStyledInputChrome)
             {
                 control.Bounds = new Rectangle(
                     content.Padding.Left,
@@ -1783,7 +1783,407 @@ public sealed class MainForm : Form
         Font = new Font("Segoe UI", 9F, FontStyle.Bold)
     };
 
-    private sealed class SearchDatePicker : UserControl
+    private interface IStyledInputChrome
+    {
+        void SetChromeBackColor(Color color);
+    }
+
+    private sealed class StyledNumberInput : UserControl, IStyledInputChrome
+    {
+        private readonly TextBox _textBox = new()
+        {
+            BorderStyle = BorderStyle.None,
+            BackColor = FormInputBackColor,
+            ForeColor = Color.FromArgb(28, 48, 54),
+            Font = new Font("Segoe UI", 9F)
+        };
+        private readonly Button _upButton = NumberButton("+");
+        private readonly Button _downButton = NumberButton("-");
+        private decimal _minimum;
+        private decimal _maximum = 100;
+        private decimal _value;
+
+        public StyledNumberInput()
+        {
+            Height = 32;
+            MinimumSize = new Size(0, 32);
+            BackColor = FormInputBackColor;
+            TabStop = true;
+            _textBox.KeyDown += (_, e) =>
+            {
+                if (e.KeyCode == Keys.Enter)
+                {
+                    CommitText();
+                    e.SuppressKeyPress = true;
+                }
+            };
+            _textBox.Leave += (_, _) => CommitText();
+            _textBox.Enter += (_, _) => OnEnter(EventArgs.Empty);
+            _textBox.Leave += (_, _) => OnLeave(EventArgs.Empty);
+            _textBox.MouseEnter += (_, _) => OnMouseEnter(EventArgs.Empty);
+            _textBox.MouseLeave += (_, _) => OnMouseLeave(EventArgs.Empty);
+            _upButton.MouseEnter += (_, _) => OnMouseEnter(EventArgs.Empty);
+            _upButton.MouseLeave += (_, _) => OnMouseLeave(EventArgs.Empty);
+            _downButton.MouseEnter += (_, _) => OnMouseEnter(EventArgs.Empty);
+            _downButton.MouseLeave += (_, _) => OnMouseLeave(EventArgs.Empty);
+            _upButton.Click += (_, _) => Value += 1;
+            _downButton.Click += (_, _) => Value -= 1;
+            Controls.Add(_textBox);
+            Controls.Add(_upButton);
+            Controls.Add(_downButton);
+            UpdateText();
+        }
+
+        public decimal Minimum
+        {
+            get => _minimum;
+            set
+            {
+                _minimum = value;
+                Value = _value;
+            }
+        }
+
+        public decimal Maximum
+        {
+            get => _maximum;
+            set
+            {
+                _maximum = value;
+                Value = _value;
+            }
+        }
+
+        public decimal Value
+        {
+            get => _value;
+            set
+            {
+                _value = Math.Min(Math.Max(value, Minimum), Maximum);
+                UpdateText();
+            }
+        }
+
+        public void SetChromeBackColor(Color color)
+        {
+            BackColor = color;
+            _textBox.BackColor = color;
+            _upButton.BackColor = color;
+            _downButton.BackColor = color;
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            var buttonWidth = 24;
+            var half = Math.Max(12, Height / 2);
+            _upButton.Bounds = new Rectangle(Math.Max(0, Width - buttonWidth), 0, buttonWidth, half);
+            _downButton.Bounds = new Rectangle(Math.Max(0, Width - buttonWidth), half, buttonWidth, Math.Max(12, Height - half));
+            var textHeight = Math.Min(20, Math.Max(18, Height - 4));
+            _textBox.Bounds = new Rectangle(0, Math.Max(2, (Height - textHeight) / 2), Math.Max(20, Width - buttonWidth - 6), textHeight);
+        }
+
+        private static Button NumberButton(string text)
+        {
+            var button = new Button
+            {
+                Text = text,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = FormInputBackColor,
+                ForeColor = MutedTextColor,
+                Margin = new Padding(0),
+                TabStop = false
+            };
+            button.FlatAppearance.BorderSize = 0;
+            button.FlatAppearance.MouseOverBackColor = Color.FromArgb(244, 248, 249);
+            button.FlatAppearance.MouseDownBackColor = Color.FromArgb(235, 244, 244);
+            return button;
+        }
+
+        private void CommitText()
+        {
+            if (decimal.TryParse(_textBox.Text.Trim(), out var parsed))
+            {
+                Value = parsed;
+                return;
+            }
+
+            UpdateText();
+        }
+
+        private void UpdateText()
+        {
+            _textBox.Text = decimal.Truncate(_value) == _value
+                ? decimal.ToInt64(_value).ToString()
+                : _value.ToString("0.##");
+        }
+    }
+
+    private sealed class StyledSelectInput : UserControl, IStyledInputChrome
+    {
+        private readonly TextBox _textBox = new()
+        {
+            BorderStyle = BorderStyle.None,
+            ReadOnly = true,
+            BackColor = FormInputBackColor,
+            ForeColor = Color.FromArgb(28, 48, 54),
+            Font = new Font("Segoe UI", 9F)
+        };
+        private readonly Button _button = new()
+        {
+            Text = "v",
+            Width = 28,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = FormInputBackColor,
+            ForeColor = Color.FromArgb(28, 48, 54),
+            TabStop = false
+        };
+        private readonly List<object> _items = [];
+        private Form? _popup;
+        private object? _dataSource;
+        private string _displayMember = string.Empty;
+        private string _valueMember = string.Empty;
+        private int _selectedIndex = -1;
+
+        public StyledSelectInput()
+        {
+            Height = 32;
+            MinimumSize = new Size(0, 32);
+            BackColor = FormInputBackColor;
+            TabStop = true;
+            _button.FlatAppearance.BorderSize = 0;
+            _button.FlatAppearance.MouseOverBackColor = Color.FromArgb(244, 248, 249);
+            _button.FlatAppearance.MouseDownBackColor = Color.FromArgb(235, 244, 244);
+            _button.Click += (_, _) => ShowPopup();
+            _textBox.Click += (_, _) => ShowPopup();
+            _textBox.Enter += (_, _) => OnEnter(EventArgs.Empty);
+            _textBox.Leave += (_, _) => OnLeave(EventArgs.Empty);
+            _textBox.MouseEnter += (_, _) => OnMouseEnter(EventArgs.Empty);
+            _textBox.MouseLeave += (_, _) => OnMouseLeave(EventArgs.Empty);
+            _button.MouseEnter += (_, _) => OnMouseEnter(EventArgs.Empty);
+            _button.MouseLeave += (_, _) => OnMouseLeave(EventArgs.Empty);
+            Controls.Add(_textBox);
+            Controls.Add(_button);
+        }
+
+        public ComboBoxStyle DropDownStyle { get; set; } = ComboBoxStyle.DropDownList;
+
+        public object? DataSource
+        {
+            get => _dataSource;
+            set
+            {
+                _dataSource = value;
+                ReloadItems();
+            }
+        }
+
+        public string DisplayMember
+        {
+            get => _displayMember;
+            set
+            {
+                _displayMember = value;
+                UpdateText();
+            }
+        }
+
+        public string ValueMember
+        {
+            get => _valueMember;
+            set
+            {
+                _valueMember = value;
+                UpdateText();
+            }
+        }
+
+        public object? SelectedValue
+        {
+            get => _selectedIndex >= 0 && _selectedIndex < _items.Count ? GetMemberValue(_items[_selectedIndex], ValueMember) : null;
+            set => SelectByValue(value);
+        }
+
+        public void SetChromeBackColor(Color color)
+        {
+            BackColor = color;
+            _textBox.BackColor = color;
+            _button.BackColor = color;
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            _button.Bounds = new Rectangle(Math.Max(0, Width - _button.Width), 0, _button.Width, Height);
+            var textHeight = Math.Min(20, Math.Max(18, Height - 4));
+            _textBox.Bounds = new Rectangle(0, Math.Max(2, (Height - textHeight) / 2), Math.Max(20, Width - _button.Width - 4), textHeight);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                ClosePopup();
+            }
+
+            base.Dispose(disposing);
+        }
+
+        private void ReloadItems()
+        {
+            _items.Clear();
+            if (DataSource is System.Collections.IEnumerable source && DataSource is not string)
+            {
+                foreach (var item in source)
+                {
+                    _items.Add(item);
+                }
+            }
+
+            _selectedIndex = _items.Count > 0 ? 0 : -1;
+            UpdateText();
+        }
+
+        private void SelectByValue(object? value)
+        {
+            for (var i = 0; i < _items.Count; i++)
+            {
+                var itemValue = GetMemberValue(_items[i], ValueMember);
+                if (Equals(itemValue, value) || string.Equals(Convert.ToString(itemValue), Convert.ToString(value), StringComparison.Ordinal))
+                {
+                    _selectedIndex = i;
+                    UpdateText();
+                    return;
+                }
+            }
+
+            UpdateText();
+        }
+
+        private void ShowPopup()
+        {
+            if (_popup is { IsDisposed: false, Visible: true })
+            {
+                _popup.Activate();
+                return;
+            }
+
+            ClosePopup();
+            var list = new ListBox
+            {
+                BorderStyle = BorderStyle.None,
+                DrawMode = DrawMode.OwnerDrawFixed,
+                ItemHeight = 30,
+                BackColor = Color.White,
+                ForeColor = Color.FromArgb(28, 48, 54),
+                IntegralHeight = false
+            };
+            foreach (var item in _items)
+            {
+                list.Items.Add(item);
+            }
+
+            list.DrawItem += (_, e) =>
+            {
+                if (e.Index < 0)
+                {
+                    return;
+                }
+
+                var selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+                using var background = new SolidBrush(selected ? PrimaryBlue : Color.White);
+                using var textBrush = new SolidBrush(selected ? Color.White : Color.FromArgb(28, 48, 54));
+                e.Graphics.FillRectangle(background, e.Bounds);
+                e.Graphics.DrawString(DisplayValue(list.Items[e.Index]), e.Font ?? Font, textBrush, new Rectangle(e.Bounds.Left + 10, e.Bounds.Top, e.Bounds.Width - 20, e.Bounds.Height), new StringFormat { LineAlignment = StringAlignment.Center });
+            };
+            if (_selectedIndex >= 0 && _selectedIndex < list.Items.Count)
+            {
+                list.SelectedIndex = _selectedIndex;
+            }
+
+            list.Click += (_, _) =>
+            {
+                if (list.SelectedIndex < 0)
+                {
+                    return;
+                }
+
+                _selectedIndex = list.SelectedIndex;
+                UpdateText();
+                ClosePopup();
+            };
+
+            var popup = new Form
+            {
+                AutoScaleMode = AutoScaleMode.None,
+                BackColor = FormInputBorderColor,
+                ClientSize = new Size(Math.Max(Width, 220), Math.Min(210, Math.Max(32, _items.Count * list.ItemHeight)) + 2),
+                FormBorderStyle = FormBorderStyle.None,
+                Padding = new Padding(1),
+                ShowInTaskbar = false,
+                StartPosition = FormStartPosition.Manual,
+                TopMost = true
+            };
+            list.Dock = DockStyle.Fill;
+            popup.Controls.Add(list);
+            popup.Deactivate += (_, _) => ClosePopup();
+            popup.FormClosed += (_, _) =>
+            {
+                if (ReferenceEquals(_popup, popup))
+                {
+                    _popup = null;
+                }
+            };
+
+            var location = PointToScreen(new Point(0, Height + 1));
+            var screen = Screen.FromControl(this).WorkingArea;
+            if (location.X + popup.Width > screen.Right)
+            {
+                location.X = Math.Max(screen.Left, screen.Right - popup.Width);
+            }
+
+            if (location.Y + popup.Height > screen.Bottom)
+            {
+                location.Y = Math.Max(screen.Top, PointToScreen(Point.Empty).Y - popup.Height - 1);
+            }
+
+            popup.Location = location;
+            _popup = popup;
+            popup.Show();
+            popup.Activate();
+        }
+
+        private void ClosePopup()
+        {
+            var popup = _popup;
+            _popup = null;
+            if (popup is null || popup.IsDisposed)
+            {
+                return;
+            }
+
+            popup.Close();
+        }
+
+        private void UpdateText()
+        {
+            _textBox.Text = _selectedIndex >= 0 && _selectedIndex < _items.Count ? DisplayValue(_items[_selectedIndex]) : string.Empty;
+        }
+
+        private string DisplayValue(object item) => Convert.ToString(GetMemberValue(item, DisplayMember)) ?? string.Empty;
+
+        private static object? GetMemberValue(object item, string member)
+        {
+            if (string.IsNullOrWhiteSpace(member))
+            {
+                return item;
+            }
+
+            return item.GetType().GetProperty(member)?.GetValue(item);
+        }
+    }
+
+    private sealed class SearchDatePicker : UserControl, IStyledInputChrome
     {
         private readonly TextBox _textBox = new()
         {
@@ -1819,6 +2219,12 @@ public sealed class MainForm : Form
             _button.FlatAppearance.MouseDownBackColor = Color.FromArgb(236, 243, 244);
             _button.Click += (_, _) => ShowCalendar();
             _textBox.Click += (_, _) => ShowCalendar();
+            _textBox.Enter += (_, _) => OnEnter(EventArgs.Empty);
+            _textBox.Leave += (_, _) => OnLeave(EventArgs.Empty);
+            _textBox.MouseEnter += (_, _) => OnMouseEnter(EventArgs.Empty);
+            _textBox.MouseLeave += (_, _) => OnMouseLeave(EventArgs.Empty);
+            _button.MouseEnter += (_, _) => OnMouseEnter(EventArgs.Empty);
+            _button.MouseLeave += (_, _) => OnMouseLeave(EventArgs.Empty);
 
             Controls.Add(_textBox);
             Controls.Add(_button);
