@@ -1166,9 +1166,7 @@ public sealed class MainForm : Form
     private void RefreshHome()
     {
         var filter = _homeSearchText.Text.Trim();
-        var pendingByDevice = _store.GetPendingLogs()
-            .GroupBy(item => item.DeviceId, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase);
+        var pendingByDevice = _store.GetPendingLogCountsByDevice();
 
         var rows = _store.GetDevices()
             .Select((device, index) => DeviceHomeRow.From(device, index + 1, pendingByDevice.GetValueOrDefault(device.DeviceId)))
@@ -1235,7 +1233,7 @@ public sealed class MainForm : Form
         SetGridColumn(_homeGrid, nameof(DeviceHomeRow.No), "#", 50);
         SetGridColumn(_homeGrid, nameof(DeviceHomeRow.Location), "Địa điểm", 120);
         SetGridColumn(_homeGrid, nameof(DeviceHomeRow.Status), "Trạng thái", 130);
-        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.LogCount), "Số log", 80);
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.LogCount), "Chờ gửi", 80);
         SetGridColumn(_homeGrid, nameof(DeviceHomeRow.UserCount), "Người dùng", 95);
         SetGridColumn(_homeGrid, nameof(DeviceHomeRow.LastLoadedAt), "Lần tải cuối", 145);
         SetGridColumn(_homeGrid, nameof(DeviceHomeRow.LoadFrom), "Tải từ ngày", 120);

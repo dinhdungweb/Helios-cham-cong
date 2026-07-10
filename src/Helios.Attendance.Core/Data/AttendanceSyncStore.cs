@@ -330,6 +330,26 @@ public sealed class AttendanceSyncStore
 
     public int GetPendingLogCount() => ScalarInt("SELECT COUNT(*) FROM pending_logs");
 
+    public IReadOnlyDictionary<string, int> GetPendingLogCountsByDevice()
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT device_id, COUNT(*) AS pending_count
+            FROM pending_logs
+            GROUP BY device_id;
+            """;
+
+        using var reader = command.ExecuteReader();
+        var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        while (reader.Read())
+        {
+            counts[GetString(reader, "device_id")] = GetInt(reader, "pending_count");
+        }
+
+        return counts;
+    }
+
     public IReadOnlyList<SyncLog> GetRecentSyncLogs(int limit = 100)
     {
         using var connection = OpenConnection();
