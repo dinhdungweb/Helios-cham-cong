@@ -233,6 +233,7 @@ public sealed class MainForm : Form
             Padding = new Padding(0, 10, 0, 0)
         };
         buttons.Controls.Add(Button("Test kết nối", async (_, _) => await TestDeviceAsync()));
+        buttons.Controls.Add(Button("Cài SDK ZK", async (_, _) => await InstallZkSdkAsync()));
         buttons.Controls.Add(Button("Lưu", (_, _) => SaveDevice()));
         buttons.Controls.Add(Button("Xóa", (_, _) => DeleteSelectedDevice()));
         buttons.Controls.Add(Button("Làm mới", (_, _) => RefreshDevices()));
@@ -375,9 +376,71 @@ public sealed class MainForm : Form
             var device = ReadDeviceFromForm();
             var result = await _deviceClient.TestConnectionAsync(device, CancellationToken.None);
             AppendOutput(result.Success ? $"Test thiết bị thành công: {result.Message}" : $"Test thiết bị lỗi: {result.Message}");
+            if (!result.Success && IsMissingZkSdk(result.Message))
+            {
+                var confirm = MessageBox.Show(
+                    $"{result.Message}{Environment.NewLine}{Environment.NewLine}App có thể tự tìm và cài SDK ZK. Bấm Yes để cài ngay.",
+                    "Thiếu SDK ZK",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                if (confirm == DialogResult.Yes)
+                {
+                    await InstallZkSdkCoreAsync();
+                }
+
+                return;
+            }
+
             MessageBox.Show(result.Message, result.Success ? "Thành công" : "Lỗi", MessageBoxButtons.OK,
                 result.Success ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
         });
+    }
+
+    private async Task InstallZkSdkAsync()
+    {
+        await RunBusyAsync("Đang cài SDK ZK...", InstallZkSdkCoreAsync);
+    }
+
+    private async Task InstallZkSdkCoreAsync()
+    {
+        if (ZkSdkInstaller.IsRegistered())
+        {
+            AppendOutput("SDK ZK đã sẵn sàng.");
+            MessageBox.Show("SDK ZK đã sẵn sàng. Hãy bấm Test kết nối lại.", "SDK ZK", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        AppendOutput("Đang tìm zkemkeeper.dll trên máy...");
+        var dllPath = await Task.Run(ZkSdkInstaller.FindSdkDll);
+        if (string.IsNullOrWhiteSpace(dllPath))
+        {
+            using var dialog = new OpenFileDialog
+            {
+                Title = "Chọn file zkemkeeper.dll",
+                Filter = "ZK SDK (zkemkeeper.dll)|zkemkeeper.dll|DLL files (*.dll)|*.dll|All files (*.*)|*.*",
+                CheckFileExists = true,
+                Multiselect = false
+            };
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+            {
+                AppendOutput("Chưa chọn file zkemkeeper.dll.");
+                return;
+            }
+
+            dllPath = dialog.FileName;
+        }
+
+        AppendOutput($"Đang cài SDK ZK từ {dllPath}.");
+        var result = await Task.Run(() => ZkSdkInstaller.RegisterSdk(dllPath));
+        AppendOutput(result.Success ? $"Cài SDK ZK thành công: {result.Message}" : $"Cài SDK ZK lỗi: {result.Message}");
+
+        MessageBox.Show(
+            result.Message,
+            result.Success ? "Cài SDK ZK thành công" : "Cài SDK ZK lỗi",
+            MessageBoxButtons.OK,
+            result.Success ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
     }
 
     private async Task RestartServiceAsync()
@@ -661,6 +724,10 @@ public sealed class MainForm : Form
             return ex.Message;
         }
     }
+
+    private static bool IsMissingZkSdk(string message) =>
+        message.Contains(ZkSdkInstaller.ProgId, StringComparison.OrdinalIgnoreCase) ||
+        message.Contains("driver ZK SDK", StringComparison.OrdinalIgnoreCase);
 
     private async Task RunBusyAsync(string status, Func<Task> action)
     {

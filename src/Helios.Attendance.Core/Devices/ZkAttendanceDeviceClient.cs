@@ -35,7 +35,7 @@ public sealed class ZkAttendanceDeviceClient : IAttendanceDeviceClient
                 : string.Empty;
 
             return DeviceConnectionResult.Fail(
-                prefix + "máy này chưa có driver ZK SDK (zkemkeeper.CZKEM) đúng kiến trúc để đọc log.");
+                prefix + "máy này chưa có driver ZK SDK (zkemkeeper.CZKEM) đúng kiến trúc để đọc log. Hãy bấm Cài SDK ZK trong tab Thiết bị.");
         }
 
         try
@@ -78,7 +78,7 @@ public sealed class ZkAttendanceDeviceClient : IAttendanceDeviceClient
             throw new InvalidOperationException(
                 "Chưa cài hoặc chưa đăng ký driver ZK SDK (zkemkeeper.CZKEM). " +
                 "App có thể mở được IP/port nhưng không thể đọc log nếu thiếu driver này. " +
-                "Với máy ZK/Ronald Jack, nên dùng bản HOFFICE win-x86 nếu driver ZK là 32-bit.");
+                "Hãy bấm Cài SDK ZK trong tab Thiết bị.");
         }
 
         return await RunInStaAsync(
