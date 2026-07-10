@@ -518,7 +518,7 @@ public sealed class MainForm : Form
             BackColor = ShellBackColor
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 380));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 420));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         _devicesGrid.SelectionChanged += (_, _) => LoadSelectedDeviceIntoForm();
@@ -1585,7 +1585,7 @@ public sealed class MainForm : Form
             ColumnCount = 2,
             AutoSize = true
         };
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         return panel;
     }
@@ -1630,7 +1630,7 @@ public sealed class MainForm : Form
 
         void LayoutControl()
         {
-            var innerWidth = Math.Max(24, frame.ClientSize.Width);
+            var innerWidth = Math.Max(24, frame.ClientSize.Width - 12);
             var preferredHeight = control.PreferredSize.Height;
             var innerHeight = Math.Min(preferredHeight, Math.Max(20, frame.ClientSize.Height - 4));
             var top = Math.Max(2, (frame.ClientSize.Height - innerHeight) / 2);
