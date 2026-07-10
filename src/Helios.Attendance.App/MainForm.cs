@@ -263,7 +263,8 @@ public sealed class MainForm : Form
 
         var sideLayout = new TableLayoutPanel
         {
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
+            AutoSize = true,
             ColumnCount = 1,
             RowCount = 2
         };
@@ -275,8 +276,7 @@ public sealed class MainForm : Form
         var group = new GroupBox
         {
             Text = "Cấu hình máy",
-            Dock = DockStyle.Top,
-            AutoSize = true,
+            Dock = DockStyle.Fill,
             Padding = new Padding(10)
         };
         group.Controls.Add(sideLayout);
