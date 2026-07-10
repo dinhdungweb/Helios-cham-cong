@@ -77,8 +77,8 @@ App đọc máy ZK/Ronald Jack qua ZK SDK COM `zkemkeeper.CZKEM`.
 - `Test kết nối` dùng SDK ZK thật, không chỉ mở port TCP.
 - `Đồng bộ ngay` đọc log bằng `ReadGeneralLogData` và `SSR_GetGeneralLogData`.
 - Publish mặc định là `win-x86` để tương thích với driver ZK 32-bit thường đi kèm các phần mềm chấm công.
-- Tab Thiết bị có nút `Cài SDK ZK`: app tự tìm `zkemkeeper.dll`, bật UAC và đăng ký SDK; nếu không tìm thấy thì mở hộp thoại để chọn file DLL.
+- Tab Thiết bị có nút `Cài driver`: với `ZK / Ronald Jack`, app tự tìm `zkemkeeper.dll`, bật UAC và đăng ký SDK; nếu không tìm thấy thì mở hộp thoại để chọn file DLL. Các loại máy khác sẽ báo rõ là cần bổ sung SDK/giao thức của hãng.
 
-Máy cài app cần có driver ZK SDK/`zkemkeeper.dll` đã được đăng ký COM. Nếu app báo thiếu `zkemkeeper.CZKEM`, bấm `Cài SDK ZK`. Để triển khai dễ hơn, có thể đặt `zkemkeeper.dll` cùng thư mục với `HeliosAttendanceSync.exe` hoặc trong thư mục `drivers` cạnh file exe.
+Máy cài app cần có driver ZK SDK/`zkemkeeper.dll` đã được đăng ký COM. Nếu app báo thiếu `zkemkeeper.CZKEM`, bấm `Cài driver`. Để triển khai dễ hơn, có thể đặt `zkemkeeper.dll` cùng thư mục với `HeliosAttendanceSync.exe` hoặc trong thư mục `drivers` cạnh file exe.
 
 Fallback dữ liệu mẫu vẫn còn cho môi trường test: copy `samples\sample_logs.csv` vào `C:\ProgramData\HELIOS Attendance Sync\sample_logs.csv`.

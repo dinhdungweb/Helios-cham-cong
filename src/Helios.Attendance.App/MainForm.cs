@@ -166,25 +166,34 @@ public sealed class MainForm : Form
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-        var summary = FormGrid();
-        AddRow(summary, "Trạng thái service", _serviceStatusValue);
-        AddRow(summary, "Trạng thái API", _apiStatusValue);
-        AddRow(summary, "Tổng số máy", _deviceCountValue);
-        AddRow(summary, "Máy active", _activeDeviceValue);
-        AddRow(summary, "Máy lỗi", _deviceErrorValue);
-        AddRow(summary, "Lần đồng bộ gần nhất", _lastSyncValue);
-        AddRow(summary, "Log gửi hôm nay", _sentTodayValue);
-        AddRow(summary, "Log pending", _pendingValue);
-        AddRow(summary, "Lỗi mapping hôm nay", _mappingErrorValue);
-
-        var summaryGroup = new GroupBox
+        var summary = new TableLayoutPanel
         {
-            Text = "Trạng thái",
             Dock = DockStyle.Top,
             AutoSize = true,
-            Padding = new Padding(10)
+            ColumnCount = 3,
+            RowCount = 1,
+            Margin = new Padding(0, 0, 0, 8)
         };
-        summaryGroup.Controls.Add(summary);
+        summary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34));
+        summary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33));
+        summary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33));
+        summary.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        summary.Controls.Add(BuildSummaryGroup(
+            "Kết nối",
+            ("Service", _serviceStatusValue),
+            ("API", _apiStatusValue),
+            ("Lần đồng bộ", _lastSyncValue)), 0, 0);
+        summary.Controls.Add(BuildSummaryGroup(
+            "Thiết bị",
+            ("Tổng máy", _deviceCountValue),
+            ("Đang hoạt động", _activeDeviceValue),
+            ("Máy lỗi", _deviceErrorValue)), 1, 0);
+        summary.Controls.Add(BuildSummaryGroup(
+            "Log",
+            ("Đã gửi hôm nay", _sentTodayValue),
+            ("Pending", _pendingValue),
+            ("Lỗi mapping", _mappingErrorValue)), 2, 0);
 
         var actions = new FlowLayoutPanel
         {
@@ -200,7 +209,7 @@ public sealed class MainForm : Form
         actions.Controls.Add(Button("Mở thư mục log", (_, _) => OpenDataFolder()));
         actions.Controls.Add(Button("Refresh", (_, _) => RefreshDynamicData()));
 
-        layout.Controls.Add(summaryGroup, 0, 0);
+        layout.Controls.Add(summary, 0, 0);
         layout.Controls.Add(actions, 0, 1);
         layout.Controls.Add(_outputText, 0, 2);
         tab.Controls.Add(layout);
@@ -247,7 +256,7 @@ public sealed class MainForm : Form
             Padding = new Padding(0, 10, 0, 0)
         };
         buttons.Controls.Add(Button("Test kết nối", async (_, _) => await TestDeviceAsync()));
-        buttons.Controls.Add(Button("Cài SDK ZK", async (_, _) => await InstallZkSdkAsync()));
+        buttons.Controls.Add(Button("Cài driver", async (_, _) => await InstallDeviceDriverAsync()));
         buttons.Controls.Add(Button("Lưu", (_, _) => SaveDevice()));
         buttons.Controls.Add(Button("Xóa", (_, _) => DeleteSelectedDevice()));
         buttons.Controls.Add(Button("Làm mới", (_, _) => RefreshDevices()));
@@ -266,7 +275,8 @@ public sealed class MainForm : Form
         var group = new GroupBox
         {
             Text = "Cấu hình máy",
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
+            AutoSize = true,
             Padding = new Padding(10)
         };
         group.Controls.Add(sideLayout);
@@ -358,6 +368,26 @@ public sealed class MainForm : Form
         return layout;
     }
 
+    private static GroupBox BuildSummaryGroup(string title, params (string Label, Control Value)[] rows)
+    {
+        var form = CompactFormGrid();
+        foreach (var (label, value) in rows)
+        {
+            AddRow(form, label, value);
+        }
+
+        var group = new GroupBox
+        {
+            Text = title,
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            Padding = new Padding(10),
+            Margin = new Padding(0, 0, 10, 0)
+        };
+        group.Controls.Add(form);
+        return group;
+    }
+
     private async Task SyncNowAsync()
     {
         SaveApiSettingsFromForm(showMessage: false);
@@ -393,14 +423,14 @@ public sealed class MainForm : Form
             if (!result.Success && IsMissingZkSdk(result.Message))
             {
                 var confirm = MessageBox.Show(
-                    $"{result.Message}{Environment.NewLine}{Environment.NewLine}App có thể tự tìm và cài SDK ZK. Bấm Yes để cài ngay.",
-                    "Thiếu SDK ZK",
+                    $"{result.Message}{Environment.NewLine}{Environment.NewLine}App có thể tự tìm và cài driver. Bấm Yes để cài ngay.",
+                    "Thiếu driver",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question);
 
                 if (confirm == DialogResult.Yes)
                 {
-                    await InstallZkSdkCoreAsync();
+                    await InstallDeviceDriverCoreAsync();
                 }
 
                 return;
@@ -411,9 +441,24 @@ public sealed class MainForm : Form
         });
     }
 
-    private async Task InstallZkSdkAsync()
+    private async Task InstallDeviceDriverAsync()
     {
-        await RunBusyAsync("Đang cài SDK ZK...", InstallZkSdkCoreAsync);
+        await RunBusyAsync("Đang cài driver...", InstallDeviceDriverCoreAsync);
+    }
+
+    private async Task InstallDeviceDriverCoreAsync()
+    {
+        var deviceType = Convert.ToString(_deviceTypeInput.SelectedValue);
+        if (AttendanceDeviceTypes.Normalize(deviceType) == AttendanceDeviceTypes.ZkRonaldJack)
+        {
+            await InstallZkSdkCoreAsync();
+            return;
+        }
+
+        var deviceTypeName = AttendanceDeviceTypes.GetDisplayName(deviceType);
+        var message = $"Loại máy {deviceTypeName} chưa có bộ cài driver tự động trong bản này. Cần bổ sung SDK/giao thức của hãng trước.";
+        AppendOutput(message);
+        MessageBox.Show(message, "Chưa hỗ trợ driver", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     private async Task InstallZkSdkCoreAsync()
@@ -881,6 +926,19 @@ public sealed class MainForm : Form
             AutoSize = true
         };
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        return panel;
+    }
+
+    private static TableLayoutPanel CompactFormGrid()
+    {
+        var panel = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            ColumnCount = 2,
+            AutoSize = true
+        };
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         return panel;
     }
