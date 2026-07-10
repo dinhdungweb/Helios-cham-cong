@@ -801,19 +801,78 @@ public sealed class MainForm : Form
     private void RefreshHistory()
     {
         _historyGrid.DataSource = null;
-        _historyGrid.DataSource = _store.GetRecentSyncLogs().ToList();
+        _historyGrid.DataSource = _store.GetRecentSyncLogs()
+            .Select(SyncLogRow.From)
+            .ToList();
+        FormatHistoryGrid();
     }
 
     private void RefreshPending()
     {
         _pendingGrid.DataSource = null;
-        _pendingGrid.DataSource = _store.GetPendingLogs().ToList();
+        _pendingGrid.DataSource = _store.GetPendingLogs()
+            .Select(PendingLogRow.From)
+            .ToList();
+        FormatPendingGrid();
     }
 
     private void RefreshErrors()
     {
         _errorsGrid.DataSource = null;
-        _errorsGrid.DataSource = _store.GetRecentErrors().ToList();
+        _errorsGrid.DataSource = _store.GetRecentErrors()
+            .Select(AppErrorRow.From)
+            .ToList();
+        FormatErrorsGrid();
+    }
+
+    private void FormatHistoryGrid()
+    {
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.Id), "#", 48);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.DeviceId), "Máy", 90);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.StartedAt), "Bắt đầu", 145);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.FinishedAt), "Kết thúc", 145);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.Status), "Trạng thái", 100);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.TotalRead), "Đọc", 70);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.TotalSent), "Gửi", 70);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.Pending), "Pending", 80);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.TotalFailed), "Lỗi", 70);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.ErrorMessage), "Ghi chú", 360);
+    }
+
+    private void FormatPendingGrid()
+    {
+        SetGridColumn(_pendingGrid, nameof(PendingLogRow.Id), "#", 48);
+        SetGridColumn(_pendingGrid, nameof(PendingLogRow.DeviceId), "Máy", 80);
+        SetGridColumn(_pendingGrid, nameof(PendingLogRow.StoreCode), "Chi nhánh", 110);
+        SetGridColumn(_pendingGrid, nameof(PendingLogRow.EmployeeCode), "Mã nhân viên", 110);
+        SetGridColumn(_pendingGrid, nameof(PendingLogRow.PunchTime), "Thời gian chấm", 150);
+        SetGridColumn(_pendingGrid, nameof(PendingLogRow.VerifyText), "Kiểu chấm", 150);
+        SetGridColumn(_pendingGrid, nameof(PendingLogRow.StateText), "Vào/Ra", 120);
+        SetGridColumn(_pendingGrid, nameof(PendingLogRow.RetryCount), "Lần gửi", 70);
+        SetGridColumn(_pendingGrid, nameof(PendingLogRow.LastError), "Lỗi gửi", 260);
+        SetGridColumn(_pendingGrid, nameof(PendingLogRow.UpdatedAt), "Cập nhật", 145);
+    }
+
+    private void FormatErrorsGrid()
+    {
+        SetGridColumn(_errorsGrid, nameof(AppErrorRow.Id), "#", 48);
+        SetGridColumn(_errorsGrid, nameof(AppErrorRow.ErrorType), "Loại lỗi", 110);
+        SetGridColumn(_errorsGrid, nameof(AppErrorRow.DeviceId), "Máy", 90);
+        SetGridColumn(_errorsGrid, nameof(AppErrorRow.Message), "Thông báo", 320);
+        SetGridColumn(_errorsGrid, nameof(AppErrorRow.Detail), "Chi tiết", 360);
+        SetGridColumn(_errorsGrid, nameof(AppErrorRow.CreatedAt), "Thời gian", 145);
+    }
+
+    private static void SetGridColumn(DataGridView grid, string name, string header, int width)
+    {
+        if (!grid.Columns.Contains(name))
+        {
+            return;
+        }
+
+        var column = grid.Columns[name];
+        column.HeaderText = header;
+        column.Width = width;
     }
 
     private static string GetServiceStatus()
@@ -974,4 +1033,172 @@ public sealed class MainForm : Form
         Anchor = AnchorStyles.Left,
         Font = new Font("Segoe UI", 9F, FontStyle.Bold)
     };
+
+    private sealed class PendingLogRow
+    {
+        public int Id { get; init; }
+
+        public string DeviceId { get; init; } = string.Empty;
+
+        public string StoreCode { get; init; } = string.Empty;
+
+        public string EmployeeCode { get; init; } = string.Empty;
+
+        public string PunchTime { get; init; } = string.Empty;
+
+        public string VerifyText { get; init; } = string.Empty;
+
+        public string StateText { get; init; } = string.Empty;
+
+        public int RetryCount { get; init; }
+
+        public string LastError { get; init; } = string.Empty;
+
+        public string UpdatedAt { get; init; } = string.Empty;
+
+        public static PendingLogRow From(PendingLog log)
+        {
+            var parsed = ParsedVerifyType.Parse(log.VerifyType);
+            return new PendingLogRow
+            {
+                Id = log.Id,
+                DeviceId = log.DeviceId,
+                StoreCode = log.StoreCode,
+                EmployeeCode = log.EmployeeCode,
+                PunchTime = FormatDateTimeText(log.PunchTime),
+                VerifyText = parsed.VerifyText,
+                StateText = parsed.StateText,
+                RetryCount = log.RetryCount,
+                LastError = log.LastError,
+                UpdatedAt = FormatDateTimeText(log.UpdatedAt)
+            };
+        }
+    }
+
+    private sealed class SyncLogRow
+    {
+        public int Id { get; init; }
+
+        public string DeviceId { get; init; } = string.Empty;
+
+        public string StartedAt { get; init; } = string.Empty;
+
+        public string FinishedAt { get; init; } = string.Empty;
+
+        public string Status { get; init; } = string.Empty;
+
+        public int TotalRead { get; init; }
+
+        public int TotalSent { get; init; }
+
+        public int Pending { get; init; }
+
+        public int TotalFailed { get; init; }
+
+        public string ErrorMessage { get; init; } = string.Empty;
+
+        public static SyncLogRow From(SyncLog log) => new()
+        {
+            Id = log.Id,
+            DeviceId = log.DeviceId,
+            StartedAt = FormatDateTimeText(log.StartedAt),
+            FinishedAt = FormatDateTimeText(log.FinishedAt),
+            Status = TranslateStatus(log.Status),
+            TotalRead = log.TotalRead,
+            TotalSent = log.TotalSent,
+            Pending = log.TotalInserted,
+            TotalFailed = log.TotalFailed,
+            ErrorMessage = log.ErrorMessage
+        };
+    }
+
+    private sealed class AppErrorRow
+    {
+        public int Id { get; init; }
+
+        public string ErrorType { get; init; } = string.Empty;
+
+        public string DeviceId { get; init; } = string.Empty;
+
+        public string Message { get; init; } = string.Empty;
+
+        public string Detail { get; init; } = string.Empty;
+
+        public string CreatedAt { get; init; } = string.Empty;
+
+        public static AppErrorRow From(AppError error) => new()
+        {
+            Id = error.Id,
+            ErrorType = error.ErrorType,
+            DeviceId = error.DeviceId,
+            Message = error.Message,
+            Detail = error.Detail,
+            CreatedAt = FormatDateTimeText(error.CreatedAt)
+        };
+    }
+
+    private sealed record ParsedVerifyType(string VerifyText, string StateText)
+    {
+        public static ParsedVerifyType Parse(string raw)
+        {
+            var values = raw.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(part => part.Split(':', 2))
+                .Where(parts => parts.Length == 2 && int.TryParse(parts[1], out _))
+                .ToDictionary(parts => parts[0], parts => int.Parse(parts[1]), StringComparer.OrdinalIgnoreCase);
+
+            var verify = values.GetValueOrDefault("verify", -1);
+            var state = values.GetValueOrDefault("state", -1);
+            var work = values.GetValueOrDefault("work", 0);
+
+            var verifyText = verify switch
+            {
+                0 => "Mật khẩu",
+                1 => "Vân tay",
+                2 => "Thẻ",
+                3 => "Mật khẩu",
+                4 => "Thẻ",
+                15 => "Khuôn mặt",
+                _ when string.IsNullOrWhiteSpace(raw) => "",
+                _ => $"Mã xác minh {verify}"
+            };
+
+            var stateText = state switch
+            {
+                0 => "Vào/ra mặc định",
+                1 => "Vào",
+                2 => "Ra",
+                3 => "Tăng ca vào",
+                4 => "Tăng ca ra",
+                5 => "Ra ngoài",
+                _ => state < 0 ? "" : $"Trạng thái {state}"
+            };
+
+            if (work > 0)
+            {
+                stateText = string.IsNullOrWhiteSpace(stateText)
+                    ? $"Work {work}"
+                    : $"{stateText} | Work {work}";
+            }
+
+            return new ParsedVerifyType(verifyText, stateText);
+        }
+    }
+
+    private static string FormatDateTimeText(string value)
+    {
+        return DateTime.TryParse(value, out var dateTime)
+            ? dateTime.ToString("yyyy-MM-dd HH:mm:ss")
+            : value;
+    }
+
+    private static string TranslateStatus(string status)
+    {
+        return status.ToUpperInvariant() switch
+        {
+            "SUCCESS" => "Thành công",
+            "PARTIAL" => "Có lỗi",
+            "FAILED" => "Thất bại",
+            _ => status
+        };
+    }
 }
