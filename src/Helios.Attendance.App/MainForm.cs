@@ -694,7 +694,7 @@ public sealed class MainForm : Form
                 Margin = new Padding(0, 0, 12, 0)
             };
             field.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
-            field.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
+            field.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
             field.Controls.Add(new Label
             {
                 Text = label,
@@ -712,7 +712,7 @@ public sealed class MainForm : Form
 
         var searchButton = Button("Tìm kiếm", (_, _) => RefreshPending());
         searchButton.Width = 110;
-        searchButton.Height = 36;
+        searchButton.Height = 32;
         searchButton.Margin = new Padding(0, 25, 8, 0);
         filters.Controls.Add(searchButton);
         filterContent.Controls.Add(filters, 0, 1);
@@ -1680,11 +1680,11 @@ public sealed class MainForm : Form
         var frame = new Panel
         {
             Dock = DockStyle.Fill,
-            Height = 36,
-            MinimumSize = new Size(0, 36),
-            Margin = new Padding(0, 3, 0, 3),
-            Padding = new Padding(2),
-            BackColor = CardBorderColor,
+            Height = 32,
+            MinimumSize = new Size(0, 32),
+            Margin = new Padding(0, 2, 0, 2),
+            Padding = new Padding(1),
+            BackColor = FormInputBorderColor,
             TabStop = false
         };
 
@@ -1725,7 +1725,7 @@ public sealed class MainForm : Form
 
         content.Resize += (_, _) => LayoutControl();
         control.Enter += (_, _) => frame.BackColor = PrimaryBlue;
-        control.Leave += (_, _) => frame.BackColor = CardBorderColor;
+        control.Leave += (_, _) => frame.BackColor = FormInputBorderColor;
         content.Controls.Add(control);
         LayoutControl();
         frame.Controls.Add(content);
