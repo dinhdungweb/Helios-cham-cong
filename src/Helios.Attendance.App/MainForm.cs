@@ -15,7 +15,7 @@ public sealed class MainForm : Form
     private static readonly Color StatusErrorColor = Color.Firebrick;
 
     private readonly AttendanceSyncStore _store = new();
-    private readonly IAttendanceDeviceClient _deviceClient = new TcpAttendanceDeviceClient();
+    private readonly IAttendanceDeviceClient _deviceClient = new ZkAttendanceDeviceClient();
     private readonly SyncEngine _syncEngine;
 
     private readonly ToolStripStatusLabel _statusText = new();
@@ -82,7 +82,7 @@ public sealed class MainForm : Form
     private readonly NumericUpDown _readBackDaysInput = new()
     {
         Minimum = 0,
-        Maximum = 30,
+        Maximum = 365,
         Value = 1
     };
 
@@ -541,7 +541,7 @@ public sealed class MainForm : Form
         _apiTokenText.Text = settings.ApiToken;
         _apiTimeoutInput.Value = Math.Clamp(settings.TimeoutSeconds, 1, 300);
         _syncIntervalInput.Value = Math.Clamp(_store.GetSyncIntervalMinutes(), 1, 1440);
-        _readBackDaysInput.Value = Math.Clamp(_store.GetReadBackDays(), 0, 30);
+        _readBackDaysInput.Value = Math.Clamp(_store.GetReadBackDays(), 0, 365);
     }
 
     private void SaveApiSettingsFromForm(bool showMessage = true)

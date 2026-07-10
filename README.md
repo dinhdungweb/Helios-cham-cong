@@ -51,7 +51,7 @@ Service name: `HeliosAttendanceSyncService`.
 Script sẽ đăng ký:
 
 ```text
-publish\app\HeliosAttendanceSync.exe --service
+publish\hoffice\HeliosAttendanceSync.exe --service
 ```
 
 ## Dữ liệu local
@@ -70,9 +70,12 @@ C:\ProgramData\HELIOS Attendance Sync\attendance_sync.db
 
 ## Adapter thiết bị hiện tại
 
-MVP hiện có:
+App đọc máy ZK/Ronald Jack qua ZK SDK COM `zkemkeeper.CZKEM`.
 
-- Test kết nối TCP tới IP/port máy chấm công.
-- Đọc log tạm từ `C:\ProgramData\HELIOS Attendance Sync\sample_logs.csv` nếu file tồn tại.
+- `Test kết nối` dùng SDK ZK thật, không chỉ mở port TCP.
+- `Đồng bộ ngay` đọc log bằng `ReadGeneralLogData` và `SSR_GetGeneralLogData`.
+- Publish mặc định là `win-x86` để tương thích với driver ZK 32-bit thường đi kèm các phần mềm chấm công.
 
-Để thử luồng sync bằng dữ liệu mẫu, copy `samples\sample_logs.csv` vào thư mục data ở trên và tạo thiết bị `MCC_HN_01` trong app. Khi có hãng/model/SDK máy thật, thay phần đọc log trong `TcpAttendanceDeviceClient`.
+Máy cài app cần có driver ZK SDK/`zkemkeeper.dll` đã được đăng ký COM. Nếu app báo thiếu `zkemkeeper.CZKEM` trong khi phần mềm khác vẫn đọc được log, hãy dùng bản HOFFICE `win-x86` hoặc đăng ký lại `zkemkeeper.dll` đúng kiến trúc.
+
+Fallback dữ liệu mẫu vẫn còn cho môi trường test: copy `samples\sample_logs.csv` vào `C:\ProgramData\HELIOS Attendance Sync\sample_logs.csv`.

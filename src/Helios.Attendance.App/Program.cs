@@ -59,7 +59,7 @@ static class Program
             options.ServiceName = AppPaths.ServiceName;
         });
         builder.Services.AddSingleton<AttendanceSyncStore>();
-        builder.Services.AddSingleton<IAttendanceDeviceClient, TcpAttendanceDeviceClient>();
+        builder.Services.AddSingleton<IAttendanceDeviceClient, ZkAttendanceDeviceClient>();
         builder.Services.AddHostedService<ServiceWorker>();
 
         using var host = builder.Build();

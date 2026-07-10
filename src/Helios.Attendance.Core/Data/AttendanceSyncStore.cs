@@ -107,12 +107,12 @@ public sealed class AttendanceSyncStore
 
     public int GetSyncIntervalMinutes() => Math.Clamp(GetSettingInt("sync_interval_minutes", 5), 1, 1440);
 
-    public int GetReadBackDays() => Math.Clamp(GetSettingInt("read_back_days", 1), 0, 30);
+    public int GetReadBackDays() => Math.Clamp(GetSettingInt("read_back_days", 1), 0, 365);
 
     public void SaveSyncSettings(int intervalMinutes, int readBackDays)
     {
         SaveSetting("sync_interval_minutes", Math.Clamp(intervalMinutes, 1, 1440).ToString(CultureInfo.InvariantCulture));
-        SaveSetting("read_back_days", Math.Clamp(readBackDays, 0, 30).ToString(CultureInfo.InvariantCulture));
+        SaveSetting("read_back_days", Math.Clamp(readBackDays, 0, 365).ToString(CultureInfo.InvariantCulture));
     }
 
     public IReadOnlyList<Device> GetDevices(bool activeOnly = false)

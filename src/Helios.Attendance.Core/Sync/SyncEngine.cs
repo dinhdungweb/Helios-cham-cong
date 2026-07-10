@@ -234,8 +234,12 @@ public sealed class SyncEngine
 
     private static DateTime GetReadFromTime(Device device, int readBackDays)
     {
-        var fallback = DateTime.Now.AddDays(-Math.Max(1, readBackDays));
-        var lastSync = DateTimeText.ParseOrDefault(device.LastSuccessSyncAt, fallback);
+        if (string.IsNullOrWhiteSpace(device.LastSuccessSyncAt))
+        {
+            return DateTime.Now.AddDays(-Math.Max(1, readBackDays));
+        }
+
+        var lastSync = DateTimeText.ParseOrDefault(device.LastSuccessSyncAt, DateTime.Now);
         return lastSync.AddDays(-readBackDays);
     }
 

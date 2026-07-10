@@ -3,7 +3,9 @@ $ErrorActionPreference = "Stop"
 
 $serviceName = "HeliosAttendanceSyncService"
 $root = Split-Path -Parent $PSScriptRoot
-$serviceExe = Join-Path $root "publish\app\HeliosAttendanceSync.exe"
+$preferredExe = Join-Path $root "publish\hoffice\HeliosAttendanceSync.exe"
+$fallbackExe = Join-Path $root "publish\app\HeliosAttendanceSync.exe"
+$serviceExe = if (Test-Path $preferredExe) { $preferredExe } else { $fallbackExe }
 
 if (Test-Path $serviceExe) {
     $process = Start-Process -FilePath $serviceExe -ArgumentList "--uninstall-service" -Wait -PassThru
