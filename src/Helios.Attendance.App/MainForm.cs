@@ -325,7 +325,7 @@ public sealed class MainForm : Form
     private static Control MetricCard(string title, Label value)
     {
         var card = CardPanel(new Padding(12), new Padding(0, 0, 12, 0));
-        card.MinimumSize = new Size(0, 88);
+        card.MinimumSize = new Size(0, 96);
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -410,8 +410,8 @@ public sealed class MainForm : Form
             Padding = new Padding(16),
             BackColor = ShellBackColor
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 106));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 116));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         var metrics = new TableLayoutPanel
@@ -540,7 +540,7 @@ public sealed class MainForm : Form
             Padding = new Padding(16),
             BackColor = ShellBackColor
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 300));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         var form = FormGrid();
@@ -603,7 +603,7 @@ public sealed class MainForm : Form
             Padding = new Padding(16),
             BackColor = ShellBackColor
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 142));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         var filterContent = new TableLayoutPanel
@@ -690,7 +690,7 @@ public sealed class MainForm : Form
             Padding = new Padding(16),
             BackColor = ShellBackColor
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 128));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         var actionContent = new TableLayoutPanel
@@ -1413,12 +1413,18 @@ public sealed class MainForm : Form
         BorderStyle = BorderStyle.None,
         GridColor = CardBorderColor,
         EnableHeadersVisualStyles = false,
-        ColumnHeadersHeight = 32,
+        ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing,
+        ColumnHeadersHeight = 36,
+        RowTemplate = new DataGridViewRow
+        {
+            Height = 28
+        },
         ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
         {
             BackColor = Color.FromArgb(235, 241, 242),
             ForeColor = Color.FromArgb(28, 48, 54),
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Padding = new Padding(0, 4, 0, 4)
         },
         AlternatingRowsDefaultCellStyle = new DataGridViewCellStyle
         {
