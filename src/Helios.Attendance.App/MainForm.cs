@@ -13,9 +13,12 @@ public sealed class MainForm : Form
     private static readonly Color StatusReadyColor = Color.SeaGreen;
     private static readonly Color StatusBusyColor = Color.DarkOrange;
     private static readonly Color StatusErrorColor = Color.Firebrick;
-    private static readonly Color PrimaryBlue = Color.FromArgb(45, 124, 190);
-    private static readonly Color MenuBorderColor = Color.FromArgb(205, 205, 205);
-
+    private static readonly Color PrimaryBlue = Color.FromArgb(20, 126, 113);
+    private static readonly Color SidebarBackColor = Color.FromArgb(31, 42, 48);
+    private static readonly Color SidebarSelectedColor = Color.FromArgb(20, 126, 113);
+    private static readonly Color ShellBackColor = Color.FromArgb(244, 246, 248);
+    private static readonly Color CardBorderColor = Color.FromArgb(220, 226, 229);
+    private static readonly Color MutedTextColor = Color.FromArgb(94, 108, 113);
     private readonly AttendanceSyncStore _store = new();
     private readonly IAttendanceDeviceClient _deviceClient = new DeviceTypeAttendanceDeviceClient();
     private readonly SyncEngine _syncEngine;
@@ -147,12 +150,12 @@ public sealed class MainForm : Form
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            RowCount = 4,
+            RowCount = 3,
             ColumnCount = 1
         };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 96));
+        BackColor = ShellBackColor;
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
         ConfigurePageHost();
@@ -168,10 +171,21 @@ public sealed class MainForm : Form
         var statusStrip = new StatusStrip();
         statusStrip.Items.Add(_statusText);
 
-        root.Controls.Add(BuildTopNavigation(), 0, 0);
-        root.Controls.Add(_tabs, 0, 1);
-        root.Controls.Add(BuildFooter(), 0, 2);
-        root.Controls.Add(statusStrip, 0, 3);
+        var shell = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1,
+            BackColor = ShellBackColor
+        };
+        shell.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220));
+        shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        shell.Controls.Add(BuildSidebar(), 0, 0);
+        shell.Controls.Add(_tabs, 1, 0);
+
+        root.Controls.Add(BuildAppHeader(), 0, 0);
+        root.Controls.Add(shell, 0, 1);
+        root.Controls.Add(statusStrip, 0, 2);
         Controls.Add(root);
         UpdateMenuState();
     }
@@ -184,105 +198,183 @@ public sealed class MainForm : Form
         _tabs.Padding = new Point(0, 0);
     }
 
-    private Control BuildTopNavigation()
+    private Control BuildAppHeader()
     {
-        var outer = new TableLayoutPanel
+        var header = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 2,
-            Padding = new Padding(14, 8, 10, 8),
+            ColumnCount = 3,
+            RowCount = 1,
+            Padding = new Padding(20, 12, 16, 12),
             BackColor = Color.White
         };
-        outer.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-        outer.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
 
-        var title = new Label
+        var brand = new Label
         {
-            Text = "HOFFICE.VN",
-            AutoSize = true,
+            Text = "HOFFICE",
             Dock = DockStyle.Fill,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(70, 70, 70),
+            Font = new Font("Segoe UI", 15F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(28, 48, 54),
             TextAlign = ContentAlignment.MiddleLeft
         };
 
-        var row = new TableLayoutPanel
+        var status = new Label
         {
+            Text = "Chấm công tự động | Quản lý thiết bị | Đồng bộ API",
             Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            RowCount = 1
+            ForeColor = MutedTextColor,
+            TextAlign = ContentAlignment.MiddleLeft
         };
-        row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 205));
-
-        var menu = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            AutoSize = false,
-            WrapContents = false,
-            Margin = new Padding(0)
-        };
-
-        menu.Controls.Add(MenuButton("⌂", 0, 38));
-        menu.Controls.Add(MenuButton("Thêm máy", 1));
-        menu.Controls.Add(MenuButton("Tìm kiếm", 2));
-        menu.Controls.Add(MenuButton("Lịch sử", 3));
-        menu.Controls.Add(MenuButton("Cài đặt", 4));
-        menu.Controls.Add(MenuButton("Hướng dẫn", 5));
-        menu.Controls.Add(MenuButton("Xuất/Nhập DS thiết bị", 1, 150));
 
         var syncButton = new Button
         {
-            Text = "Tải/đẩy log tự động",
+            Text = "Đồng bộ ngay",
             Dock = DockStyle.Fill,
             FlatStyle = FlatStyle.Flat,
             BackColor = PrimaryBlue,
             ForeColor = Color.White,
-            Margin = new Padding(0, 2, 0, 2),
-            Height = 34
+            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Margin = new Padding(0)
         };
         syncButton.FlatAppearance.BorderSize = 0;
         syncButton.Click += async (_, _) => await SyncNowAsync();
 
-        row.Controls.Add(menu, 0, 0);
-        row.Controls.Add(syncButton, 1, 0);
-        outer.Controls.Add(title, 0, 0);
-        outer.Controls.Add(row, 0, 1);
-        return outer;
+        header.Controls.Add(brand, 0, 0);
+        header.Controls.Add(status, 1, 0);
+        header.Controls.Add(syncButton, 2, 0);
+        return header;
     }
 
-    private Button MenuButton(string text, int pageIndex, int width = 92)
+    private Control BuildSidebar()
+    {
+        var sidebar = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 3,
+            Padding = new Padding(12, 18, 12, 12),
+            BackColor = SidebarBackColor
+        };
+        sidebar.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        sidebar.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        sidebar.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        var title = new Label
+        {
+            Text = "Attendance Sync",
+            Dock = DockStyle.Top,
+            Height = 36,
+            ForeColor = Color.FromArgb(180, 220, 212),
+            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            TextAlign = ContentAlignment.MiddleLeft
+        };
+
+        var nav = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false,
+            AutoScroll = true
+        };
+        nav.Controls.Add(SideNavButton("Tổng quan", 0));
+        nav.Controls.Add(SideNavButton("Thiết bị", 1));
+        nav.Controls.Add(SideNavButton("Tìm kiếm log", 2));
+        nav.Controls.Add(SideNavButton("Lịch sử đồng bộ", 3));
+        nav.Controls.Add(SideNavButton("Cài đặt API", 4));
+        nav.Controls.Add(SideNavButton("Hỗ trợ", 5));
+
+        var footer = new Label
+        {
+            Text = "HOFFICE © 2.0",
+            Dock = DockStyle.Bottom,
+            Height = 28,
+            ForeColor = Color.FromArgb(155, 165, 170),
+            TextAlign = ContentAlignment.MiddleLeft
+        };
+
+        sidebar.Controls.Add(title, 0, 0);
+        sidebar.Controls.Add(nav, 0, 1);
+        sidebar.Controls.Add(footer, 0, 2);
+        return sidebar;
+    }
+
+    private Button SideNavButton(string text, int pageIndex)
     {
         var button = new Button
         {
             Text = text,
-            Width = width,
-            Height = 34,
-            Margin = new Padding(0),
+            Width = 190,
+            Height = 42,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(14, 0, 0, 0),
+            Margin = new Padding(0, 0, 0, 8),
             FlatStyle = FlatStyle.Flat,
-            BackColor = Color.White,
-            ForeColor = Color.Black,
+            BackColor = SidebarBackColor,
+            ForeColor = Color.White,
             Tag = pageIndex
         };
-        button.FlatAppearance.BorderColor = MenuBorderColor;
-        button.FlatAppearance.BorderSize = 1;
+        button.FlatAppearance.BorderSize = 0;
         button.Click += (_, _) => ShowPage(pageIndex);
         _menuButtons.Add(button);
         return button;
     }
 
-    private Control BuildFooter()
+    private static Control MetricCard(string title, Label value)
     {
-        return new Label
+        var card = CardPanel(new Padding(14), new Padding(0, 0, 12, 0));
+        var layout = new TableLayoutPanel
         {
-            Text = "Bản quyền thuộc HOFFICE © | Phiên bản 2.0",
             Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.MiddleRight,
-            Padding = new Padding(0, 3, 12, 0),
-            BackColor = Color.White,
-            BorderStyle = BorderStyle.FixedSingle
+            ColumnCount = 1,
+            RowCount = 2
         };
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+        value.AutoSize = false;
+        value.Dock = DockStyle.Fill;
+        value.Margin = new Padding(0);
+        value.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
+        value.TextAlign = ContentAlignment.MiddleLeft;
+
+        layout.Controls.Add(new Label
+        {
+            Text = title,
+            Dock = DockStyle.Fill,
+            ForeColor = MutedTextColor,
+            TextAlign = ContentAlignment.MiddleLeft
+        }, 0, 0);
+        layout.Controls.Add(value, 0, 1);
+        card.Controls.Add(layout);
+        return card;
+    }
+
+    private static Panel CardPanel(Padding padding)
+    {
+        return CardPanel(padding, new Padding(0));
+    }
+
+    private static Panel CardPanel(Padding padding, Padding margin)
+    {
+        var panel = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.White,
+            Padding = padding,
+            Margin = margin
+        };
+        panel.Paint += (_, e) =>
+        {
+            var rect = panel.ClientRectangle;
+            rect.Width -= 1;
+            rect.Height -= 1;
+            using var pen = new Pen(CardBorderColor);
+            e.Graphics.DrawRectangle(pen, rect);
+        };
+        return panel;
     }
 
     private void ShowPage(int pageIndex)
@@ -301,31 +393,48 @@ public sealed class MainForm : Form
         foreach (var button in _menuButtons)
         {
             var selected = button.Tag is int pageIndex && pageIndex == _tabs.SelectedIndex;
-            button.BackColor = selected ? Color.FromArgb(245, 245, 245) : Color.White;
-            button.FlatAppearance.BorderColor = selected ? PrimaryBlue : MenuBorderColor;
-            button.ForeColor = selected ? PrimaryBlue : Color.Black;
+            button.BackColor = selected ? SidebarSelectedColor : SidebarBackColor;
+            button.ForeColor = selected ? Color.White : Color.FromArgb(220, 226, 228);
         }
     }
 
     private TabPage BuildOverviewTab()
     {
-        var tab = new TabPage("Tong quan");
+        var tab = new TabPage("Tổng quan") { BackColor = ShellBackColor };
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            RowCount = 2,
+            RowCount = 3,
             ColumnCount = 1,
-            Padding = new Padding(0)
+            Padding = new Padding(16),
+            BackColor = ShellBackColor
         };
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 82));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+        var metrics = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 4,
+            RowCount = 1,
+            Margin = new Padding(0, 0, 0, 12)
+        };
+        metrics.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+        metrics.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+        metrics.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+        metrics.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+        metrics.Controls.Add(MetricCard("Service", _serviceStatusValue), 0, 0);
+        metrics.Controls.Add(MetricCard("API", _apiStatusValue), 1, 0);
+        metrics.Controls.Add(MetricCard("Chờ gửi", _pendingValue), 2, 0);
+        metrics.Controls.Add(MetricCard("Lần đồng bộ", _lastSyncValue), 3, 0);
 
         var search = new FlowLayoutPanel
         {
             Dock = DockStyle.Top,
             AutoSize = true,
             FlowDirection = FlowDirection.RightToLeft,
-            Padding = new Padding(0, 10, 10, 8)
+            Padding = new Padding(0, 0, 0, 10)
         };
         _homeSearchText.Width = 160;
         _homeSearchText.Margin = new Padding(8, 0, 0, 0);
@@ -333,37 +442,38 @@ public sealed class MainForm : Form
         search.Controls.Add(_homeSearchText);
         search.Controls.Add(new Label
         {
-            Text = "Tim kiem",
+            Text = "Tìm kiếm",
             AutoSize = true,
             TextAlign = ContentAlignment.MiddleCenter,
             Margin = new Padding(0, 3, 0, 0)
         });
 
-        layout.Controls.Add(search, 0, 0);
-        layout.Controls.Add(_homeGrid, 0, 1);
+        var gridCard = CardPanel(new Padding(1));
+        gridCard.Controls.Add(_homeGrid);
+
+        layout.Controls.Add(metrics, 0, 0);
+        layout.Controls.Add(search, 0, 1);
+        layout.Controls.Add(gridCard, 0, 2);
         tab.Controls.Add(layout);
         return tab;
     }
     private TabPage BuildDevicesTab()
     {
-        var tab = new TabPage("Thiết bị");
+        var tab = new TabPage("Thiết bị") { BackColor = ShellBackColor };
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 2,
             RowCount = 1,
-            Padding = new Padding(12)
+            Padding = new Padding(16),
+            BackColor = ShellBackColor
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 380));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         _devicesGrid.SelectionChanged += (_, _) => LoadSelectedDeviceIntoForm();
-        var gridPanel = new Panel
-        {
-            Dock = DockStyle.Fill,
-            Padding = new Padding(0, 0, 12, 0)
-        };
+        var gridPanel = CardPanel(new Padding(1), new Padding(0, 0, 14, 0));
         gridPanel.Controls.Add(_devicesGrid);
         layout.Controls.Add(gridPanel, 0, 0);
 
@@ -391,24 +501,28 @@ public sealed class MainForm : Form
 
         var sideLayout = new TableLayoutPanel
         {
-            Dock = DockStyle.Top,
-            AutoSize = true,
+            Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 2
+            RowCount = 3
         };
         sideLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        sideLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         sideLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        sideLayout.Controls.Add(form, 0, 0);
-        sideLayout.Controls.Add(buttons, 0, 1);
-
-        var group = new GroupBox
+        sideLayout.Controls.Add(new Label
         {
             Text = "Cấu hình máy",
-            Dock = DockStyle.Fill,
-            Padding = new Padding(10)
-        };
-        group.Controls.Add(sideLayout);
-        layout.Controls.Add(group, 1, 0);
+            Dock = DockStyle.Top,
+            Height = 30,
+            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(28, 48, 54),
+            TextAlign = ContentAlignment.MiddleLeft
+        }, 0, 0);
+        sideLayout.Controls.Add(form, 0, 1);
+        sideLayout.Controls.Add(buttons, 0, 2);
+
+        var sideCard = CardPanel(new Padding(14));
+        sideCard.Controls.Add(sideLayout);
+        layout.Controls.Add(sideCard, 1, 0);
 
         tab.Controls.Add(layout);
         return tab;
@@ -416,15 +530,17 @@ public sealed class MainForm : Form
 
     private TabPage BuildApiTab()
     {
-        var tab = new TabPage("API");
+        var tab = new TabPage("API") { BackColor = ShellBackColor };
         var layout = new TableLayoutPanel
         {
-            Dock = DockStyle.Top,
+            Dock = DockStyle.Fill,
             ColumnCount = 1,
             RowCount = 2,
-            Padding = new Padding(12),
-            AutoSize = true
+            Padding = new Padding(16),
+            BackColor = ShellBackColor
         };
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         var form = FormGrid();
         AddRow(form, "API URL", _apiUrlText);
@@ -442,112 +558,179 @@ public sealed class MainForm : Form
         actions.Controls.Add(Button("Test API", async (_, _) => await TestApiAsync()));
         actions.Controls.Add(Button("Lưu cấu hình", (_, _) => SaveApiSettingsFromForm()));
 
-        layout.Controls.Add(form, 0, 0);
-        layout.Controls.Add(actions, 0, 1);
+        var content = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            ColumnCount = 1,
+            RowCount = 3
+        };
+        content.Controls.Add(new Label
+        {
+            Text = "Cấu hình kết nối API",
+            Dock = DockStyle.Top,
+            Height = 30,
+            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(28, 48, 54),
+            TextAlign = ContentAlignment.MiddleLeft
+        }, 0, 0);
+        content.Controls.Add(form, 0, 1);
+        content.Controls.Add(actions, 0, 2);
+
+        var card = CardPanel(new Padding(16));
+        card.Controls.Add(content);
+        layout.Controls.Add(card, 0, 0);
         tab.Controls.Add(layout);
         return tab;
     }
 
     private TabPage BuildHistoryTab()
     {
-        var tab = new TabPage("Lịch sử");
-        tab.Controls.Add(BuildGridPanel(_historyGrid, Button("Refresh", (_, _) => RefreshHistory())));
+        var tab = new TabPage("Lịch sử đồng bộ") { BackColor = ShellBackColor };
+        tab.Controls.Add(BuildGridPanel(_historyGrid, Button("Làm mới", (_, _) => RefreshHistory())));
         return tab;
     }
 
     private TabPage BuildPendingTab()
     {
-        var tab = new TabPage("Tim kiem");
-        var layout = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            RowCount = 3,
-            ColumnCount = 1,
-            Padding = new Padding(0)
-        };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 172));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
-        var form = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 3,
-            RowCount = 4,
-            Padding = new Padding(170, 28, 200, 0)
-        };
-        form.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
-        form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        form.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
-
-        AddSearchRow(form, 0, "Ma cham cong", _searchEmployeeText);
-        AddSearchRow(form, 1, "Tu Ngay", _searchFromDate);
-        AddSearchRow(form, 2, "Den ngay", _searchToDate);
-
-        var searchButton = Button("Tim kiem", (_, _) => RefreshPending());
-        searchButton.Width = 100;
-        searchButton.Anchor = AnchorStyles.Top;
-        form.Controls.Add(searchButton, 1, 3);
-
-        var title = new Label
-        {
-            Text = "Danh sach log cham cong",
-            Dock = DockStyle.Fill,
-            Padding = new Padding(8, 0, 0, 0),
-            TextAlign = ContentAlignment.BottomLeft
-        };
-
-        layout.Controls.Add(form, 0, 0);
-        layout.Controls.Add(title, 0, 1);
-        layout.Controls.Add(_pendingGrid, 0, 2);
-        tab.Controls.Add(layout);
-        return tab;
-    }
-
-    private TabPage BuildPendingTabOld()
-    {
-        var tab = new TabPage("Pending");
-        var retryButton = Button("Gửi lại ngay", async (_, _) => await SyncNowAsync());
-        var clearButton = Button("Xóa pending", (_, _) => ClearPendingLogs());
-        tab.Controls.Add(BuildGridPanel(_pendingGrid, retryButton, clearButton, Button("Refresh", (_, _) => RefreshPending())));
-        return tab;
-    }
-
-    private TabPage BuildErrorsTab()
-    {
-        var tab = new TabPage("Huong dan");
+        var tab = new TabPage("Tìm kiếm log") { BackColor = ShellBackColor };
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             RowCount = 2,
             ColumnCount = 1,
-            Padding = new Padding(12)
+            Padding = new Padding(16),
+            BackColor = ShellBackColor
         };
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+        var filterContent = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            ColumnCount = 1,
+            RowCount = 2
+        };
+        filterContent.Controls.Add(new Label
+        {
+            Text = "Tìm kiếm dữ liệu chấm công",
+            Dock = DockStyle.Top,
+            Height = 28,
+            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(28, 48, 54),
+            TextAlign = ContentAlignment.MiddleLeft
+        }, 0, 0);
+
+        var filters = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            WrapContents = true,
+            Padding = new Padding(0, 8, 0, 0)
+        };
+
+        void AddFilter(string label, Control control, int width)
+        {
+            var field = new TableLayoutPanel
+            {
+                Width = width,
+                Height = 52,
+                ColumnCount = 1,
+                RowCount = 2,
+                Margin = new Padding(0, 0, 12, 0)
+            };
+            field.RowStyles.Add(new RowStyle(SizeType.Absolute, 20));
+            field.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
+            field.Controls.Add(new Label
+            {
+                Text = label,
+                Dock = DockStyle.Fill,
+                ForeColor = MutedTextColor,
+                TextAlign = ContentAlignment.MiddleLeft
+            }, 0, 0);
+            control.Dock = DockStyle.Fill;
+            control.Margin = new Padding(0);
+            field.Controls.Add(control, 0, 1);
+            filters.Controls.Add(field);
+        }
+
+        AddFilter("Mã chấm công", _searchEmployeeText, 190);
+        AddFilter("Từ ngày", _searchFromDate, 140);
+        AddFilter("Đến ngày", _searchToDate, 140);
+
+        var searchButton = Button("Tìm kiếm", (_, _) => RefreshPending());
+        searchButton.Width = 110;
+        searchButton.Height = 32;
+        searchButton.Margin = new Padding(0, 20, 8, 0);
+        filters.Controls.Add(searchButton);
+        filterContent.Controls.Add(filters, 0, 1);
+
+        var filterCard = CardPanel(new Padding(14), new Padding(0, 0, 0, 12));
+        filterCard.Controls.Add(filterContent);
+
+        var gridCard = CardPanel(new Padding(1));
+        gridCard.Controls.Add(_pendingGrid);
+
+        layout.Controls.Add(filterCard, 0, 0);
+        layout.Controls.Add(gridCard, 0, 1);
+        tab.Controls.Add(layout);
+        return tab;
+    }
+
+    private TabPage BuildErrorsTab()
+    {
+        var tab = new TabPage("Hỗ trợ") { BackColor = ShellBackColor };
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            RowCount = 2,
+            ColumnCount = 1,
+            Padding = new Padding(16),
+            BackColor = ShellBackColor
+        };
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+        var actionContent = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            ColumnCount = 1,
+            RowCount = 2
+        };
+        actionContent.Controls.Add(new Label
+        {
+            Text = "Công cụ vận hành",
+            Dock = DockStyle.Top,
+            Height = 28,
+            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(28, 48, 54),
+            TextAlign = ContentAlignment.MiddleLeft
+        }, 0, 0);
 
         var actions = new FlowLayoutPanel
         {
             AutoSize = true,
             Dock = DockStyle.Fill,
-            Padding = new Padding(0, 0, 0, 8)
+            Padding = new Padding(0, 8, 0, 0)
         };
-        actions.Controls.Add(Button("Cai driver", async (_, _) => await InstallDeviceDriverAsync()));
-        actions.Controls.Add(Button("Cai/Cap nhat Service", async (_, _) => await InstallServiceAsync()));
+        actions.Controls.Add(Button("Cài driver", async (_, _) => await InstallDeviceDriverAsync()));
+        actions.Controls.Add(Button("Cài/Cập nhật Service", async (_, _) => await InstallServiceAsync()));
         actions.Controls.Add(Button("Restart Service", async (_, _) => await RestartServiceAsync()));
-        actions.Controls.Add(Button("Mo thu muc log", (_, _) => OpenDataFolder()));
-        actions.Controls.Add(Button("Refresh", (_, _) => RefreshDynamicData()));
+        actions.Controls.Add(Button("Mở thư mục log", (_, _) => OpenDataFolder()));
+        actions.Controls.Add(Button("Làm mới", (_, _) => RefreshDynamicData()));
+        actionContent.Controls.Add(actions, 0, 1);
 
-        layout.Controls.Add(actions, 0, 0);
-        layout.Controls.Add(_outputText, 0, 1);
+        var actionCard = CardPanel(new Padding(14), new Padding(0, 0, 0, 12));
+        actionCard.Controls.Add(actionContent);
+
+        var outputCard = CardPanel(new Padding(1));
+        outputCard.Controls.Add(_outputText);
+
+        layout.Controls.Add(actionCard, 0, 0);
+        layout.Controls.Add(outputCard, 0, 1);
         tab.Controls.Add(layout);
-        return tab;
-    }
-
-    private TabPage BuildErrorsTabOld()
-    {
-        var tab = new TabPage("Lỗi");
-        tab.Controls.Add(BuildGridPanel(_errorsGrid, Button("Refresh", (_, _) => RefreshErrors())));
         return tab;
     }
 
@@ -558,7 +741,8 @@ public sealed class MainForm : Form
             Dock = DockStyle.Fill,
             RowCount = 2,
             ColumnCount = 1,
-            Padding = new Padding(12)
+            Padding = new Padding(16),
+            BackColor = ShellBackColor
         };
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -571,29 +755,12 @@ public sealed class MainForm : Form
         };
         actions.Controls.AddRange(buttons);
 
+        var gridCard = CardPanel(new Padding(1));
+        gridCard.Controls.Add(grid);
+
         layout.Controls.Add(actions, 0, 0);
-        layout.Controls.Add(grid, 0, 1);
+        layout.Controls.Add(gridCard, 0, 1);
         return layout;
-    }
-
-    private static GroupBox BuildSummaryGroup(string title, params (string Label, Control Value)[] rows)
-    {
-        var form = CompactFormGrid();
-        foreach (var (label, value) in rows)
-        {
-            AddRow(form, label, value);
-        }
-
-        var group = new GroupBox
-        {
-            Text = title,
-            Dock = DockStyle.Fill,
-            AutoSize = true,
-            Padding = new Padding(10),
-            Margin = new Padding(0, 0, 10, 0)
-        };
-        group.Controls.Add(form);
-        return group;
     }
 
     private async Task SyncNowAsync()
@@ -1012,17 +1179,17 @@ public sealed class MainForm : Form
     private void FormatHomeGrid()
     {
         SetGridColumn(_homeGrid, nameof(DeviceHomeRow.No), "#", 50);
-        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.Location), "Dia diem", 120);
-        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.Status), "Trang thai", 130);
-        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.LogCount), "So log", 80);
-        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.UserCount), "Nguoi dung", 95);
-        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.LastLoadedAt), "Lan tai cuoi", 145);
-        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.LoadFrom), "Tai tu ngay", 120);
-        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.Code), "Ma", 80);
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.Location), "Địa điểm", 120);
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.Status), "Trạng thái", 130);
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.LogCount), "Số log", 80);
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.UserCount), "Người dùng", 95);
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.LastLoadedAt), "Lần tải cuối", 145);
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.LoadFrom), "Tải từ ngày", 120);
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.Code), "Mã", 80);
         SetGridColumn(_homeGrid, nameof(DeviceHomeRow.IpAddress), "IP", 120);
         SetGridColumn(_homeGrid, nameof(DeviceHomeRow.Port), "Port", 70);
         SetGridColumn(_homeGrid, nameof(DeviceHomeRow.Serial), "Serial", 110);
-        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.DeviceType), "Loai May", 130);
+        SetGridColumn(_homeGrid, nameof(DeviceHomeRow.DeviceType), "Loại máy", 130);
     }
 
     private void HideColumn(string name)
@@ -1085,15 +1252,15 @@ public sealed class MainForm : Form
 
     private void FormatHistoryGrid()
     {
-        SetGridColumn(_historyGrid, nameof(SyncLogRow.Time), "Thoi gian", 145);
-        SetGridColumn(_historyGrid, nameof(SyncLogRow.Location), "Dia diem", 130);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.Time), "Thời gian", 145);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.Location), "Địa điểm", 130);
         SetGridColumn(_historyGrid, nameof(SyncLogRow.IpAddress), "IP", 120);
-        SetGridColumn(_historyGrid, nameof(SyncLogRow.Content), "Noi dung", 140);
-        SetGridColumn(_historyGrid, nameof(SyncLogRow.FromDate), "Tu ngay", 110);
-        SetGridColumn(_historyGrid, nameof(SyncLogRow.ToDate), "Den ngay", 110);
-        SetGridColumn(_historyGrid, nameof(SyncLogRow.Result), "Ket qua", 120);
-        SetGridColumn(_historyGrid, nameof(SyncLogRow.Data), "Du lieu", 140);
-        SetGridColumn(_historyGrid, nameof(SyncLogRow.Note), "Ghi chu", 300);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.Content), "Nội dung", 140);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.FromDate), "Từ ngày", 110);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.ToDate), "Đến ngày", 110);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.Result), "Kết quả", 120);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.Data), "Dữ liệu", 140);
+        SetGridColumn(_historyGrid, nameof(SyncLogRow.Note), "Ghi chú", 300);
     }
 
     private void FormatPendingGrid()
@@ -1220,8 +1387,13 @@ public sealed class MainForm : Form
             Text = text,
             AutoSize = true,
             MinimumSize = new Size(96, 32),
-            Margin = new Padding(0, 0, 8, 8)
+            Margin = new Padding(0, 0, 8, 8),
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.White,
+            ForeColor = Color.FromArgb(28, 48, 54)
         };
+        button.FlatAppearance.BorderColor = CardBorderColor;
+        button.FlatAppearance.BorderSize = 1;
         button.Click += onClick;
         return button;
     }
@@ -1237,7 +1409,25 @@ public sealed class MainForm : Form
         MultiSelect = false,
         RowHeadersVisible = false,
         BackgroundColor = SystemColors.Window,
-        BorderStyle = BorderStyle.FixedSingle
+        BorderStyle = BorderStyle.None,
+        GridColor = CardBorderColor,
+        EnableHeadersVisualStyles = false,
+        ColumnHeadersHeight = 32,
+        ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
+        {
+            BackColor = Color.FromArgb(235, 241, 242),
+            ForeColor = Color.FromArgb(28, 48, 54),
+            Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+        },
+        AlternatingRowsDefaultCellStyle = new DataGridViewCellStyle
+        {
+            BackColor = Color.FromArgb(250, 252, 252)
+        },
+        DefaultCellStyle = new DataGridViewCellStyle
+        {
+            SelectionBackColor = PrimaryBlue,
+            SelectionForeColor = Color.White
+        }
     };
 
     private static TableLayoutPanel FormGrid()
@@ -1249,19 +1439,6 @@ public sealed class MainForm : Form
             AutoSize = true
         };
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        return panel;
-    }
-
-    private static TableLayoutPanel CompactFormGrid()
-    {
-        var panel = new TableLayoutPanel
-        {
-            Dock = DockStyle.Top,
-            ColumnCount = 2,
-            AutoSize = true
-        };
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         return panel;
     }
