@@ -102,16 +102,8 @@ public sealed class MainForm : Form
     private readonly DataGridView _pendingGrid = Grid();
     private readonly DataGridView _errorsGrid = Grid();
     private readonly TextBox _searchEmployeeText = new();
-    private readonly DateTimePicker _searchFromDate = new()
-    {
-        Format = DateTimePickerFormat.Custom,
-        CustomFormat = "dd/MM/yyyy"
-    };
-    private readonly DateTimePicker _searchToDate = new()
-    {
-        Format = DateTimePickerFormat.Custom,
-        CustomFormat = "dd/MM/yyyy"
-    };
+    private readonly HofficeDatePicker _searchFromDate = new();
+    private readonly HofficeDatePicker _searchToDate = new();
 
     private bool _loadingDevices;
     private bool _serviceInstallPromptShown;
@@ -1530,8 +1522,15 @@ public sealed class MainForm : Form
         panel.Controls.Add(InputFrame(control), 1, row);
     }
 
-    private static Panel InputFrame(Control control)
+    private static Control InputFrame(Control control)
     {
+        if (control is HofficeDatePicker datePicker)
+        {
+            datePicker.Dock = DockStyle.Fill;
+            datePicker.Margin = new Padding(0, 3, 0, 5);
+            return datePicker;
+        }
+
         StyleInputControl(control);
 
         var frame = new Panel
@@ -1595,12 +1594,6 @@ public sealed class MainForm : Form
             case ComboBox comboBox:
                 comboBox.FlatStyle = FlatStyle.Flat;
                 break;
-            case DateTimePicker dateTimePicker:
-                dateTimePicker.CalendarForeColor = Color.FromArgb(28, 48, 54);
-                dateTimePicker.CalendarMonthBackground = Color.White;
-                dateTimePicker.CalendarTitleBackColor = PrimaryBlue;
-                dateTimePicker.CalendarTitleForeColor = Color.White;
-                break;
         }
     }
 
@@ -1626,6 +1619,120 @@ public sealed class MainForm : Form
         Anchor = AnchorStyles.Left,
         Font = new Font("Segoe UI", 9F, FontStyle.Bold)
     };
+
+    private sealed class HofficeDatePicker : UserControl
+    {
+        private readonly TextBox _textBox = new()
+        {
+            BorderStyle = BorderStyle.None,
+            ReadOnly = true,
+            BackColor = Color.White,
+            Font = new Font("Segoe UI", 9F),
+            ForeColor = Color.FromArgb(28, 48, 54)
+        };
+
+        private readonly Button _dropButton = new()
+        {
+            Text = "v",
+            Width = 28,
+            Dock = DockStyle.Right,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.White,
+            ForeColor = Color.FromArgb(28, 48, 54),
+            TabStop = false
+        };
+
+        private DateTime _value = DateTime.Today;
+
+        public HofficeDatePicker()
+        {
+            Height = 32;
+            MinimumSize = new Size(0, 32);
+            BackColor = Color.White;
+            Padding = new Padding(8, 0, 0, 0);
+            TabStop = true;
+
+            _dropButton.FlatAppearance.BorderSize = 0;
+            _dropButton.Click += (_, _) => ShowCalendar();
+            _textBox.Click += (_, _) => Focus();
+            _textBox.DoubleClick += (_, _) => ShowCalendar();
+            Click += (_, _) => Focus();
+            GotFocus += (_, _) => Invalidate();
+            LostFocus += (_, _) => Invalidate();
+
+            Controls.Add(_textBox);
+            Controls.Add(_dropButton);
+            UpdateText();
+        }
+
+        public DateTime Value
+        {
+            get => _value;
+            set
+            {
+                _value = value.Date;
+                UpdateText();
+            }
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            var textWidth = Math.Max(20, ClientSize.Width - Padding.Left - _dropButton.Width - 4);
+            var textHeight = Math.Min(20, Math.Max(18, ClientSize.Height - 4));
+            _textBox.Bounds = new Rectangle(Padding.Left, Math.Max(2, (ClientSize.Height - textHeight) / 2), textWidth, textHeight);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            var rect = ClientRectangle;
+            rect.Width -= 1;
+            rect.Height -= 1;
+            using var pen = new Pen(ContainsFocus ? PrimaryBlue : CardBorderColor);
+            e.Graphics.DrawRectangle(pen, rect);
+        }
+
+        private void ShowCalendar()
+        {
+            var calendar = new MonthCalendar
+            {
+                MaxSelectionCount = 1,
+                SelectionStart = Value,
+                SelectionEnd = Value
+            };
+            var host = new ToolStripControlHost(calendar)
+            {
+                Margin = System.Windows.Forms.Padding.Empty,
+                Padding = System.Windows.Forms.Padding.Empty,
+                AutoSize = false,
+                Size = calendar.Size
+            };
+            var dropDown = new ToolStripDropDown
+            {
+                Padding = System.Windows.Forms.Padding.Empty
+            };
+
+            calendar.DateSelected += (_, args) =>
+            {
+                Value = args.Start;
+                dropDown.Close();
+            };
+            dropDown.Closed += (_, _) =>
+            {
+                dropDown.Dispose();
+                host.Dispose();
+                calendar.Dispose();
+            };
+            dropDown.Items.Add(host);
+            dropDown.Show(this, new Point(0, Height));
+        }
+
+        private void UpdateText()
+        {
+            _textBox.Text = _value.ToString("dd/MM/yyyy");
+        }
+    }
 
     private sealed class PendingLogRow
     {
