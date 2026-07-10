@@ -18,6 +18,7 @@ public sealed class MainForm : Form
     private static readonly Color SidebarSelectedColor = Color.FromArgb(20, 126, 113);
     private static readonly Color ShellBackColor = Color.FromArgb(244, 246, 248);
     private static readonly Color CardBorderColor = Color.FromArgb(220, 226, 229);
+    private static readonly Color FormInputBorderColor = Color.FromArgb(205, 216, 222);
     private static readonly Color MutedTextColor = Color.FromArgb(94, 108, 113);
     private readonly AttendanceSyncStore _store = new();
     private readonly IAttendanceDeviceClient _deviceClient = new DeviceTypeAttendanceDeviceClient();
@@ -518,7 +519,7 @@ public sealed class MainForm : Form
             BackColor = ShellBackColor
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 420));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 440));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         _devicesGrid.SelectionChanged += (_, _) => LoadSelectedDeviceIntoForm();
@@ -1585,7 +1586,7 @@ public sealed class MainForm : Form
             ColumnCount = 2,
             AutoSize = true
         };
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         return panel;
     }
@@ -1593,7 +1594,7 @@ public sealed class MainForm : Form
     private static void AddRow(TableLayoutPanel panel, string label, Control control)
     {
         var row = panel.RowCount++;
-        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, control is CheckBox ? 34 : 42));
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, control is CheckBox ? 38 : 48));
 
         panel.Controls.Add(new Label
         {
@@ -1621,24 +1622,53 @@ public sealed class MainForm : Form
         var frame = new Panel
         {
             Dock = DockStyle.Fill,
-            Height = 32,
-            MinimumSize = new Size(0, 32),
-            Margin = new Padding(0, 2, 0, 2),
+            Height = 38,
+            MinimumSize = new Size(0, 38),
+            Margin = new Padding(0, 3, 0, 3),
             BackColor = Color.White,
+            TabStop = false
+        };
+
+        var border = new Panel
+        {
+            BackColor = FormInputBorderColor,
+            Padding = new Padding(1),
+            TabStop = false
+        };
+
+        var content = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.White,
+            Padding = new Padding(8, 0, 8, 0),
             TabStop = false
         };
 
         void LayoutControl()
         {
-            var innerWidth = Math.Max(24, frame.ClientSize.Width - 12);
+            border.Bounds = new Rectangle(0, 0, Math.Max(24, frame.ClientSize.Width - 8), frame.ClientSize.Height);
             var preferredHeight = control.PreferredSize.Height;
-            var innerHeight = Math.Min(preferredHeight, Math.Max(20, frame.ClientSize.Height - 4));
-            var top = Math.Max(2, (frame.ClientSize.Height - innerHeight) / 2);
-            control.Bounds = new Rectangle(0, top, innerWidth, innerHeight);
+            if (control is TextBox)
+            {
+                preferredHeight = 20;
+            }
+
+            var innerHeight = Math.Min(preferredHeight, Math.Max(20, content.ClientSize.Height - 4));
+            var top = Math.Max(2, (content.ClientSize.Height - innerHeight) / 2);
+            control.Bounds = new Rectangle(
+                content.Padding.Left,
+                top,
+                Math.Max(24, content.ClientSize.Width - content.Padding.Horizontal),
+                innerHeight);
         }
 
         frame.Resize += (_, _) => LayoutControl();
-        frame.Controls.Add(control);
+        content.Resize += (_, _) => LayoutControl();
+        control.Enter += (_, _) => border.BackColor = PrimaryBlue;
+        control.Leave += (_, _) => border.BackColor = FormInputBorderColor;
+        content.Controls.Add(control);
+        border.Controls.Add(content);
+        frame.Controls.Add(border);
         LayoutControl();
         return frame;
     }
@@ -1737,14 +1767,14 @@ public sealed class MainForm : Form
         switch (control)
         {
             case TextBox textBox:
-                textBox.BorderStyle = BorderStyle.FixedSingle;
+                textBox.BorderStyle = BorderStyle.None;
                 break;
             case NumericUpDown numeric:
-                numeric.BorderStyle = BorderStyle.FixedSingle;
+                numeric.BorderStyle = BorderStyle.None;
                 numeric.TextAlign = HorizontalAlignment.Left;
                 break;
             case ComboBox comboBox:
-                comboBox.FlatStyle = FlatStyle.Standard;
+                comboBox.FlatStyle = FlatStyle.Flat;
                 break;
         }
     }
