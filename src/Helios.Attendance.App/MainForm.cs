@@ -1685,10 +1685,6 @@ public sealed class MainForm : Form
     private static Control SearchInputFrame(Control control)
     {
         StyleInputControl(control);
-        if (control is TextBox textBox)
-        {
-            textBox.BorderStyle = BorderStyle.FixedSingle;
-        }
 
         var frame = new Panel
         {
@@ -1696,9 +1692,17 @@ public sealed class MainForm : Form
             Height = 32,
             MinimumSize = new Size(0, 32),
             Margin = new Padding(0, 2, 0, 2),
-            Padding = new Padding(0),
-            BackColor = Color.White,
+            Padding = new Padding(2),
+            BackColor = CardBorderColor,
             TabStop = false
+        };
+
+        var content = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0),
+            Padding = new Padding(8, 0, 8, 0),
+            BackColor = Color.White
         };
 
         void LayoutControl()
@@ -1706,17 +1710,24 @@ public sealed class MainForm : Form
             var preferredHeight = control.PreferredSize.Height;
             if (control is TextBox)
             {
-                preferredHeight = 24;
+                preferredHeight = 20;
             }
 
-            var height = Math.Min(preferredHeight, Math.Max(22, frame.ClientSize.Height));
-            var top = Math.Max(0, (frame.ClientSize.Height - height) / 2);
-            control.Bounds = new Rectangle(0, top, Math.Max(24, frame.ClientSize.Width), height);
+            var height = Math.Min(preferredHeight, Math.Max(18, content.ClientSize.Height - 4));
+            var top = Math.Max(2, (content.ClientSize.Height - height) / 2);
+            control.Bounds = new Rectangle(
+                content.Padding.Left,
+                top,
+                Math.Max(24, content.ClientSize.Width - content.Padding.Horizontal),
+                height);
         }
 
-        frame.Resize += (_, _) => LayoutControl();
-        frame.Controls.Add(control);
+        content.Resize += (_, _) => LayoutControl();
+        control.Enter += (_, _) => frame.BackColor = PrimaryBlue;
+        control.Leave += (_, _) => frame.BackColor = CardBorderColor;
+        content.Controls.Add(control);
         LayoutControl();
+        frame.Controls.Add(content);
         return frame;
     }
 
