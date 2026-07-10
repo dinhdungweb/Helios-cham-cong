@@ -103,7 +103,7 @@ public sealed class MainForm : Form
         InitializeLayout();
         LoadSettingsIntoForm();
         RefreshDynamicData();
-        BeginInvoke(async () => await OfferServiceInstallIfMissingAsync());
+        Shown += async (_, _) => await OfferServiceInstallIfMissingAsync();
     }
 
     private void InitializeLayout()
