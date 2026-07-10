@@ -129,6 +129,7 @@ public sealed class MainForm : Form
         Size = new Size(1240, 780);
 
         ConfigureDeviceTypeInput();
+        ConfigureControlStyles();
         InitializeLayout();
         LoadSettingsIntoForm();
         RefreshDynamicData();
@@ -141,6 +142,37 @@ public sealed class MainForm : Form
         _deviceTypeInput.DisplayMember = nameof(DeviceTypeOption.Label);
         _deviceTypeInput.ValueMember = nameof(DeviceTypeOption.Value);
         _deviceTypeInput.SelectedValue = AttendanceDeviceTypes.ZkRonaldJack;
+    }
+
+    private void ConfigureControlStyles()
+    {
+        foreach (var input in new Control[]
+        {
+            _homeSearchText,
+            _deviceIdText,
+            _deviceNameText,
+            _storeCodeText,
+            _ipAddressText,
+            _apiUrlText,
+            _apiTokenText,
+            _searchEmployeeText,
+            _deviceTypeInput,
+            _portInput,
+            _passwordInput,
+            _apiTimeoutInput,
+            _syncIntervalInput,
+            _readBackDaysInput,
+            _searchFromDate,
+            _searchToDate
+        })
+        {
+            StyleInputControl(input);
+        }
+
+        _outputText.BorderStyle = BorderStyle.None;
+        _outputText.BackColor = Color.White;
+        _outputText.ForeColor = Color.FromArgb(28, 48, 54);
+        _outputText.Font = new Font("Consolas", 9F);
     }
 
     private void InitializeLayout()
@@ -437,10 +469,12 @@ public sealed class MainForm : Form
             FlowDirection = FlowDirection.RightToLeft,
             Padding = new Padding(0, 0, 0, 10)
         };
-        _homeSearchText.Width = 160;
-        _homeSearchText.Margin = new Padding(8, 0, 0, 0);
         _homeSearchText.TextChanged += (_, _) => RefreshHome();
-        search.Controls.Add(_homeSearchText);
+        var homeSearchFrame = InputFrame(_homeSearchText);
+        homeSearchFrame.Width = 190;
+        homeSearchFrame.Height = 32;
+        homeSearchFrame.Margin = new Padding(8, 0, 0, 0);
+        search.Controls.Add(homeSearchFrame);
         search.Controls.Add(new Label
         {
             Text = "Tìm kiếm",
@@ -636,13 +670,13 @@ public sealed class MainForm : Form
             var field = new TableLayoutPanel
             {
                 Width = width,
-                Height = 52,
+                Height = 58,
                 ColumnCount = 1,
                 RowCount = 2,
                 Margin = new Padding(0, 0, 12, 0)
             };
-            field.RowStyles.Add(new RowStyle(SizeType.Absolute, 20));
-            field.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
+            field.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
+            field.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
             field.Controls.Add(new Label
             {
                 Text = label,
@@ -650,15 +684,13 @@ public sealed class MainForm : Form
                 ForeColor = MutedTextColor,
                 TextAlign = ContentAlignment.MiddleLeft
             }, 0, 0);
-            control.Dock = DockStyle.Fill;
-            control.Margin = new Padding(0);
-            field.Controls.Add(control, 0, 1);
+            field.Controls.Add(InputFrame(control), 0, 1);
             filters.Controls.Add(field);
         }
 
-        AddFilter("Mã chấm công", _searchEmployeeText, 190);
-        AddFilter("Từ ngày", _searchFromDate, 140);
-        AddFilter("Đến ngày", _searchToDate, 140);
+        AddFilter("Mã chấm công", _searchEmployeeText, 210);
+        AddFilter("Từ ngày", _searchFromDate, 160);
+        AddFilter("Đến ngày", _searchToDate, 160);
 
         var searchButton = Button("Tìm kiếm", (_, _) => RefreshPending());
         searchButton.Width = 110;
@@ -1420,35 +1452,44 @@ public sealed class MainForm : Form
         ReadOnly = true,
         AllowUserToAddRows = false,
         AllowUserToDeleteRows = false,
+        AllowUserToResizeRows = false,
         AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells,
         SelectionMode = DataGridViewSelectionMode.FullRowSelect,
         MultiSelect = false,
         RowHeadersVisible = false,
-        BackgroundColor = SystemColors.Window,
+        BackgroundColor = Color.White,
         BorderStyle = BorderStyle.None,
-        GridColor = CardBorderColor,
+        GridColor = Color.FromArgb(226, 232, 235),
         EnableHeadersVisualStyles = false,
         ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing,
-        ColumnHeadersHeight = 36,
+        ColumnHeadersHeight = 38,
+        ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single,
+        CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
         RowTemplate = new DataGridViewRow
         {
-            Height = 28
+            Height = 30
         },
         ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
         {
-            BackColor = Color.FromArgb(235, 241, 242),
+            BackColor = Color.FromArgb(239, 244, 245),
             ForeColor = Color.FromArgb(28, 48, 54),
             Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-            Padding = new Padding(0, 4, 0, 4)
+            Padding = new Padding(8, 5, 8, 5),
+            SelectionBackColor = Color.FromArgb(239, 244, 245),
+            SelectionForeColor = Color.FromArgb(28, 48, 54)
         },
         AlternatingRowsDefaultCellStyle = new DataGridViewCellStyle
         {
-            BackColor = Color.FromArgb(250, 252, 252)
+            BackColor = Color.FromArgb(248, 251, 251),
+            Padding = new Padding(8, 0, 8, 0)
         },
         DefaultCellStyle = new DataGridViewCellStyle
         {
             SelectionBackColor = PrimaryBlue,
-            SelectionForeColor = Color.White
+            SelectionForeColor = Color.White,
+            BackColor = Color.White,
+            ForeColor = Color.FromArgb(28, 48, 54),
+            Padding = new Padding(8, 0, 8, 0)
         }
     };
 
@@ -1468,7 +1509,7 @@ public sealed class MainForm : Form
     private static void AddRow(TableLayoutPanel panel, string label, Control control)
     {
         var row = panel.RowCount++;
-        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, control is CheckBox ? 34 : 42));
 
         panel.Controls.Add(new Label
         {
@@ -1478,9 +1519,89 @@ public sealed class MainForm : Form
             Margin = new Padding(0, 6, 8, 6)
         }, 0, row);
 
-        control.Dock = DockStyle.Fill;
-        control.Margin = new Padding(0, 3, 0, 3);
-        panel.Controls.Add(control, 1, row);
+        if (control is CheckBox)
+        {
+            control.Dock = DockStyle.Fill;
+            control.Margin = new Padding(0, 3, 0, 3);
+            panel.Controls.Add(control, 1, row);
+            return;
+        }
+
+        panel.Controls.Add(InputFrame(control), 1, row);
+    }
+
+    private static Panel InputFrame(Control control)
+    {
+        StyleInputControl(control);
+
+        var frame = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Height = 32,
+            MinimumSize = new Size(0, 32),
+            Margin = new Padding(0, 3, 0, 5),
+            Padding = new Padding(8, 0, 8, 0),
+            BackColor = Color.White,
+            TabStop = false
+        };
+
+        void LayoutControl()
+        {
+            var innerWidth = Math.Max(24, frame.ClientSize.Width - frame.Padding.Left - frame.Padding.Right);
+            var preferredHeight = control.PreferredSize.Height;
+            if (control is TextBox)
+            {
+                preferredHeight = 20;
+            }
+
+            var innerHeight = Math.Min(preferredHeight, Math.Max(18, frame.ClientSize.Height - 4));
+            var top = Math.Max(2, (frame.ClientSize.Height - innerHeight) / 2);
+            control.Bounds = new Rectangle(frame.Padding.Left, top, innerWidth, innerHeight);
+        }
+
+        frame.Paint += (_, e) =>
+        {
+            var rect = frame.ClientRectangle;
+            rect.Width -= 1;
+            rect.Height -= 1;
+            using var pen = new Pen(frame.ContainsFocus ? PrimaryBlue : CardBorderColor);
+            e.Graphics.DrawRectangle(pen, rect);
+        };
+        frame.Resize += (_, _) => LayoutControl();
+        control.Enter += (_, _) => frame.Invalidate();
+        control.Leave += (_, _) => frame.Invalidate();
+        frame.Controls.Add(control);
+        LayoutControl();
+        return frame;
+    }
+
+    private static void StyleInputControl(Control control)
+    {
+        control.Font = new Font("Segoe UI", 9F);
+        control.ForeColor = Color.FromArgb(28, 48, 54);
+        control.BackColor = Color.White;
+        control.Margin = new Padding(0);
+        control.Dock = DockStyle.None;
+
+        switch (control)
+        {
+            case TextBox textBox:
+                textBox.BorderStyle = BorderStyle.None;
+                break;
+            case NumericUpDown numeric:
+                numeric.BorderStyle = BorderStyle.None;
+                numeric.TextAlign = HorizontalAlignment.Left;
+                break;
+            case ComboBox comboBox:
+                comboBox.FlatStyle = FlatStyle.Flat;
+                break;
+            case DateTimePicker dateTimePicker:
+                dateTimePicker.CalendarForeColor = Color.FromArgb(28, 48, 54);
+                dateTimePicker.CalendarMonthBackground = Color.White;
+                dateTimePicker.CalendarTitleBackColor = PrimaryBlue;
+                dateTimePicker.CalendarTitleForeColor = Color.White;
+                break;
+        }
     }
 
     private static void AddSearchRow(TableLayoutPanel panel, int row, string label, Control control)
