@@ -1683,8 +1683,14 @@ public sealed class MainForm : Form
             Height = 32,
             MinimumSize = new Size(0, 32),
             Margin = new Padding(0, 2, 0, 2),
-            Padding = new Padding(1),
+            BackColor = Color.White,
+            TabStop = false
+        };
+
+        var border = new Panel
+        {
             BackColor = FormInputBorderColor,
+            Padding = new Padding(1),
             TabStop = false
         };
 
@@ -1698,6 +1704,7 @@ public sealed class MainForm : Form
 
         void LayoutControl()
         {
+            border.Bounds = new Rectangle(0, 0, Math.Max(24, frame.ClientSize.Width - 8), frame.ClientSize.Height);
             if (control is SearchDatePicker)
             {
                 control.Bounds = new Rectangle(
@@ -1724,11 +1731,12 @@ public sealed class MainForm : Form
         }
 
         content.Resize += (_, _) => LayoutControl();
-        control.Enter += (_, _) => frame.BackColor = PrimaryBlue;
-        control.Leave += (_, _) => frame.BackColor = FormInputBorderColor;
+        control.Enter += (_, _) => border.BackColor = PrimaryBlue;
+        control.Leave += (_, _) => border.BackColor = FormInputBorderColor;
         content.Controls.Add(control);
+        border.Controls.Add(content);
         LayoutControl();
-        frame.Controls.Add(content);
+        frame.Controls.Add(border);
         return frame;
     }
 
@@ -1915,18 +1923,10 @@ public sealed class MainForm : Form
             }
 
             popup.Location = location;
+            popup.TopMost = true;
             _calendarPopup = popup;
 
-            var owner = FindForm();
-            if (owner is null)
-            {
-                popup.Show();
-            }
-            else
-            {
-                popup.Show(owner);
-            }
-
+            popup.Show();
             popup.Activate();
         }
 
