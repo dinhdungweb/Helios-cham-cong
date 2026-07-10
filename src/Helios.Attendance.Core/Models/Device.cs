@@ -10,6 +10,10 @@ public sealed class Device
 
     public string StoreCode { get; init; } = string.Empty;
 
+    public string DeviceType { get; init; } = AttendanceDeviceTypes.ZkRonaldJack;
+
+    public string DeviceTypeName => AttendanceDeviceTypes.GetDisplayName(DeviceType);
+
     public string IpAddress { get; init; } = string.Empty;
 
     public int Port { get; init; } = 4370;

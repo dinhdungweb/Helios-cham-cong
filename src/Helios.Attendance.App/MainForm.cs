@@ -15,7 +15,7 @@ public sealed class MainForm : Form
     private static readonly Color StatusErrorColor = Color.Firebrick;
 
     private readonly AttendanceSyncStore _store = new();
-    private readonly IAttendanceDeviceClient _deviceClient = new ZkAttendanceDeviceClient();
+    private readonly IAttendanceDeviceClient _deviceClient = new DeviceTypeAttendanceDeviceClient();
     private readonly SyncEngine _syncEngine;
 
     private readonly ToolStripStatusLabel _statusText = new();
@@ -42,6 +42,10 @@ public sealed class MainForm : Form
     private readonly TextBox _deviceIdText = new();
     private readonly TextBox _deviceNameText = new();
     private readonly TextBox _storeCodeText = new();
+    private readonly ComboBox _deviceTypeInput = new()
+    {
+        DropDownStyle = ComboBoxStyle.DropDownList
+    };
     private readonly TextBox _ipAddressText = new();
     private readonly NumericUpDown _portInput = new()
     {
@@ -105,10 +109,19 @@ public sealed class MainForm : Form
         MinimumSize = new Size(1120, 720);
         Size = new Size(1240, 780);
 
+        ConfigureDeviceTypeInput();
         InitializeLayout();
         LoadSettingsIntoForm();
         RefreshDynamicData();
         Shown += async (_, _) => await OfferServiceInstallIfMissingAsync();
+    }
+
+    private void ConfigureDeviceTypeInput()
+    {
+        _deviceTypeInput.DataSource = AttendanceDeviceTypes.Options.ToList();
+        _deviceTypeInput.DisplayMember = nameof(DeviceTypeOption.Label);
+        _deviceTypeInput.ValueMember = nameof(DeviceTypeOption.Value);
+        _deviceTypeInput.SelectedValue = AttendanceDeviceTypes.ZkRonaldJack;
     }
 
     private void InitializeLayout()
@@ -221,6 +234,7 @@ public sealed class MainForm : Form
         AddRow(form, "Device ID", _deviceIdText);
         AddRow(form, "Tên máy", _deviceNameText);
         AddRow(form, "Chi nhánh", _storeCodeText);
+        AddRow(form, "Loại máy", _deviceTypeInput);
         AddRow(form, "IP", _ipAddressText);
         AddRow(form, "Port", _portInput);
         AddRow(form, "Password", _passwordInput);
@@ -632,6 +646,7 @@ public sealed class MainForm : Form
         DeviceId = _deviceIdText.Text.Trim(),
         DeviceName = _deviceNameText.Text.Trim(),
         StoreCode = _storeCodeText.Text.Trim(),
+        DeviceType = Convert.ToString(_deviceTypeInput.SelectedValue) ?? AttendanceDeviceTypes.ZkRonaldJack,
         IpAddress = _ipAddressText.Text.Trim(),
         Port = (int)_portInput.Value,
         Password = (int)_passwordInput.Value,
@@ -648,6 +663,7 @@ public sealed class MainForm : Form
         _deviceIdText.Text = device.DeviceId;
         _deviceNameText.Text = device.DeviceName;
         _storeCodeText.Text = device.StoreCode;
+        _deviceTypeInput.SelectedValue = AttendanceDeviceTypes.Normalize(device.DeviceType);
         _ipAddressText.Text = device.IpAddress;
         _portInput.Value = Math.Clamp(device.Port, 1, 65535);
         _passwordInput.Value = Math.Clamp(device.Password, 0, 999999999);
@@ -686,8 +702,48 @@ public sealed class MainForm : Form
         _loadingDevices = true;
         _devicesGrid.DataSource = null;
         _devicesGrid.DataSource = _store.GetDevices().ToList();
+        FormatDevicesGrid();
         _loadingDevices = false;
         LoadSelectedDeviceIntoForm();
+    }
+
+    private void FormatDevicesGrid()
+    {
+        HideColumn("DeviceType");
+        HideColumn("CreatedAt");
+        HideColumn("UpdatedAt");
+
+        SetColumn("Id", "#", 44);
+        SetColumn("DeviceTypeName", "Loại máy", 130);
+        SetColumn("DeviceId", "Mã máy", 90);
+        SetColumn("DeviceName", "Tên máy", 130);
+        SetColumn("StoreCode", "Chi nhánh", 120);
+        SetColumn("IpAddress", "IP", 120);
+        SetColumn("Port", "Port", 70);
+        SetColumn("Password", "Mật khẩu", 78);
+        SetColumn("IsActive", "Active", 64);
+        SetColumn("LastSuccessSyncAt", "Lần đồng bộ", 140);
+        SetColumn("LastError", "Lỗi gần nhất", 220);
+    }
+
+    private void HideColumn(string name)
+    {
+        if (_devicesGrid.Columns.Contains(name))
+        {
+            _devicesGrid.Columns[name].Visible = false;
+        }
+    }
+
+    private void SetColumn(string name, string header, int width)
+    {
+        if (!_devicesGrid.Columns.Contains(name))
+        {
+            return;
+        }
+
+        var column = _devicesGrid.Columns[name];
+        column.HeaderText = header;
+        column.Width = width;
     }
 
     private void RefreshHistory()

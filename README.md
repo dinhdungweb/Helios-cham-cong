@@ -72,6 +72,8 @@ C:\ProgramData\HELIOS Attendance Sync\attendance_sync.db
 
 App đọc máy ZK/Ronald Jack qua ZK SDK COM `zkemkeeper.CZKEM`.
 
+- Tab Thiết bị có trường `Loại máy`: `ZK / Ronald Jack`, `Soyal`, `Morpho Sigma`, `Somac`, `CSV / Excel`, `API HTTP`.
+- Bản hiện tại đọc thật cho `ZK / Ronald Jack`; các loại còn lại đã có chỗ chọn nhưng sẽ báo `chưa hỗ trợ` cho tới khi bổ sung SDK/giao thức tương ứng.
 - `Test kết nối` dùng SDK ZK thật, không chỉ mở port TCP.
 - `Đồng bộ ngay` đọc log bằng `ReadGeneralLogData` và `SSR_GetGeneralLogData`.
 - Publish mặc định là `win-x86` để tương thích với driver ZK 32-bit thường đi kèm các phần mềm chấm công.

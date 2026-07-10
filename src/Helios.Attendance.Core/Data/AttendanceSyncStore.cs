@@ -31,6 +31,7 @@ public sealed class AttendanceSyncStore
                 device_id TEXT NOT NULL UNIQUE,
                 device_name TEXT,
                 store_code TEXT,
+                device_type TEXT DEFAULT 'zk',
                 ip_address TEXT NOT NULL,
                 port INTEGER DEFAULT 4370,
                 password INTEGER DEFAULT 0,
@@ -81,11 +82,53 @@ public sealed class AttendanceSyncStore
             """;
         command.ExecuteNonQuery();
 
+        EnsureDeviceColumns(connection);
+
         SeedSetting(connection, "api_url", string.Empty);
         SeedSetting(connection, "api_token", string.Empty);
         SeedSetting(connection, "api_timeout_seconds", "30");
         SeedSetting(connection, "sync_interval_minutes", "5");
         SeedSetting(connection, "read_back_days", "1");
+    }
+
+    private static void EnsureDeviceColumns(SqliteConnection connection)
+    {
+        if (ColumnExists(connection, "devices", "device_type"))
+        {
+            return;
+        }
+
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "ALTER TABLE devices ADD COLUMN device_type TEXT DEFAULT 'zk'";
+            command.ExecuteNonQuery();
+        }
+
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                UPDATE devices
+                SET device_type = 'zk'
+                WHERE device_type IS NULL OR TRIM(device_type) = '';
+                """;
+            command.ExecuteNonQuery();
+        }
+    }
+
+    private static bool ColumnExists(SqliteConnection connection, string tableName, string columnName)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = $"PRAGMA table_info({tableName})";
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            if (string.Equals(reader.GetString(1), columnName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public ApiSettings GetApiSettings()
@@ -154,6 +197,7 @@ public sealed class AttendanceSyncStore
                 device_id,
                 device_name,
                 store_code,
+                device_type,
                 ip_address,
                 port,
                 password,
@@ -165,6 +209,7 @@ public sealed class AttendanceSyncStore
                 $device_id,
                 $device_name,
                 $store_code,
+                $device_type,
                 $ip_address,
                 $port,
                 $password,
@@ -175,6 +220,7 @@ public sealed class AttendanceSyncStore
             ON CONFLICT(device_id) DO UPDATE SET
                 device_name = excluded.device_name,
                 store_code = excluded.store_code,
+                device_type = excluded.device_type,
                 ip_address = excluded.ip_address,
                 port = excluded.port,
                 password = excluded.password,
@@ -184,6 +230,7 @@ public sealed class AttendanceSyncStore
         command.Parameters.AddWithValue("$device_id", device.DeviceId.Trim());
         command.Parameters.AddWithValue("$device_name", device.DeviceName.Trim());
         command.Parameters.AddWithValue("$store_code", device.StoreCode.Trim());
+        command.Parameters.AddWithValue("$device_type", AttendanceDeviceTypes.Normalize(device.DeviceType));
         command.Parameters.AddWithValue("$ip_address", device.IpAddress.Trim());
         command.Parameters.AddWithValue("$port", device.Port);
         command.Parameters.AddWithValue("$password", device.Password);
@@ -585,6 +632,7 @@ public sealed class AttendanceSyncStore
         DeviceId = GetString(reader, "device_id"),
         DeviceName = GetString(reader, "device_name"),
         StoreCode = GetString(reader, "store_code"),
+        DeviceType = AttendanceDeviceTypes.Normalize(GetString(reader, "device_type")),
         IpAddress = GetString(reader, "ip_address"),
         Port = GetInt(reader, "port"),
         Password = GetInt(reader, "password"),
