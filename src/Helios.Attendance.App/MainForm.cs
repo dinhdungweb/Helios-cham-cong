@@ -1624,38 +1624,39 @@ public sealed class MainForm : Form
             Height = 32,
             MinimumSize = new Size(0, 32),
             Margin = new Padding(0, 2, 0, 2),
-            Padding = new Padding(8, 0, 8, 0),
-            BackColor = Color.White,
+            Padding = new Padding(1),
+            BackColor = CardBorderColor,
             TabStop = false
+        };
+
+        var content = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0),
+            Padding = new Padding(7, 0, 7, 0),
+            BackColor = Color.White
         };
 
         void LayoutControl()
         {
-            var innerWidth = Math.Max(24, frame.ClientSize.Width - frame.Padding.Left - frame.Padding.Right);
+            var innerWidth = Math.Max(24, content.ClientSize.Width - content.Padding.Left - content.Padding.Right);
             var preferredHeight = control.PreferredSize.Height;
             if (control is TextBox)
             {
                 preferredHeight = 20;
             }
 
-            var innerHeight = Math.Min(preferredHeight, Math.Max(18, frame.ClientSize.Height - 4));
-            var top = Math.Max(2, (frame.ClientSize.Height - innerHeight) / 2);
-            control.Bounds = new Rectangle(frame.Padding.Left, top, innerWidth, innerHeight);
+            var innerHeight = Math.Min(preferredHeight, Math.Max(18, content.ClientSize.Height - 4));
+            var top = Math.Max(2, (content.ClientSize.Height - innerHeight) / 2);
+            control.Bounds = new Rectangle(content.Padding.Left, top, innerWidth, innerHeight);
         }
 
-        frame.Paint += (_, e) =>
-        {
-            var rect = frame.ClientRectangle;
-            rect.Width -= 1;
-            rect.Height -= 1;
-            using var pen = new Pen(frame.ContainsFocus ? PrimaryBlue : CardBorderColor);
-            e.Graphics.DrawRectangle(pen, rect);
-        };
-        frame.Resize += (_, _) => LayoutControl();
-        control.Enter += (_, _) => frame.Invalidate();
-        control.Leave += (_, _) => frame.Invalidate();
-        frame.Controls.Add(control);
+        content.Resize += (_, _) => LayoutControl();
+        control.Enter += (_, _) => frame.BackColor = PrimaryBlue;
+        control.Leave += (_, _) => frame.BackColor = CardBorderColor;
+        content.Controls.Add(control);
         LayoutControl();
+        frame.Controls.Add(content);
         return frame;
     }
 
@@ -1786,6 +1787,7 @@ public sealed class MainForm : Form
         };
 
         private DateTime _value = DateTime.Today;
+        private Form? _calendarPopup;
 
         public SearchDatePicker()
         {
@@ -1797,8 +1799,6 @@ public sealed class MainForm : Form
             _button.FlatAppearance.BorderSize = 0;
             _button.Click += (_, _) => ShowCalendar();
             _textBox.Click += (_, _) => ShowCalendar();
-            _textBox.DoubleClick += (_, _) => ShowCalendar();
-            Click += (_, _) => ShowCalendar();
 
             Controls.Add(_textBox);
             Controls.Add(_button);
@@ -1825,37 +1825,94 @@ public sealed class MainForm : Form
 
         private void ShowCalendar()
         {
+            if (_calendarPopup is { IsDisposed: false, Visible: true })
+            {
+                _calendarPopup.Activate();
+                return;
+            }
+
+            CloseCalendar();
+
             var calendar = new MonthCalendar
             {
                 MaxSelectionCount = 1,
                 SelectionStart = Value,
                 SelectionEnd = Value
             };
-            var host = new ToolStripControlHost(calendar)
+
+            var popup = new Form
             {
-                Margin = Padding.Empty,
-                Padding = Padding.Empty,
-                AutoSize = false,
-                Size = calendar.Size
-            };
-            var dropDown = new ToolStripDropDown
-            {
-                Padding = Padding.Empty
+                BackColor = CardBorderColor,
+                FormBorderStyle = FormBorderStyle.None,
+                ShowInTaskbar = false,
+                StartPosition = FormStartPosition.Manual
             };
 
             calendar.DateSelected += (_, args) =>
             {
                 Value = args.Start;
-                dropDown.Close();
+                CloseCalendar();
             };
-            dropDown.Closed += (_, _) =>
+
+            popup.Deactivate += (_, _) => CloseCalendar();
+            popup.FormClosed += (_, _) =>
             {
-                dropDown.Dispose();
-                host.Dispose();
-                calendar.Dispose();
+                if (ReferenceEquals(_calendarPopup, popup))
+                {
+                    _calendarPopup = null;
+                }
             };
-            dropDown.Items.Add(host);
-            dropDown.Show(this, new Point(0, Height));
+            popup.Controls.Add(calendar);
+            popup.ClientSize = calendar.Size;
+
+            var location = PointToScreen(new Point(0, Height + 1));
+            var screen = Screen.FromControl(this).WorkingArea;
+            if (location.X + popup.Width > screen.Right)
+            {
+                location.X = Math.Max(screen.Left, screen.Right - popup.Width);
+            }
+
+            if (location.Y + popup.Height > screen.Bottom)
+            {
+                location.Y = Math.Max(screen.Top, PointToScreen(Point.Empty).Y - popup.Height - 1);
+            }
+
+            popup.Location = location;
+            _calendarPopup = popup;
+
+            var owner = FindForm();
+            if (owner is null)
+            {
+                popup.Show();
+            }
+            else
+            {
+                popup.Show(owner);
+            }
+
+            popup.Activate();
+        }
+
+        private void CloseCalendar()
+        {
+            var popup = _calendarPopup;
+            _calendarPopup = null;
+            if (popup is null || popup.IsDisposed)
+            {
+                return;
+            }
+
+            popup.Close();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                CloseCalendar();
+            }
+
+            base.Dispose(disposing);
         }
 
         private void UpdateText()
