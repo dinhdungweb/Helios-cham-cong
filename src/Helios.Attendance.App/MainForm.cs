@@ -87,6 +87,7 @@ public sealed class MainForm : Form
     private readonly DataGridView _errorsGrid = Grid();
 
     private bool _loadingDevices;
+    private bool _serviceInstallPromptShown;
 
     public MainForm()
     {
@@ -102,6 +103,7 @@ public sealed class MainForm : Form
         InitializeLayout();
         LoadSettingsIntoForm();
         RefreshDynamicData();
+        BeginInvoke(async () => await OfferServiceInstallIfMissingAsync());
     }
 
     private void InitializeLayout()
@@ -173,6 +175,7 @@ public sealed class MainForm : Form
         };
         actions.Controls.Add(Button("Đồng bộ ngay", async (_, _) => await SyncNowAsync()));
         actions.Controls.Add(Button("Test API", async (_, _) => await TestApiAsync()));
+        actions.Controls.Add(Button("Cài Service", async (_, _) => await InstallServiceAsync()));
         actions.Controls.Add(Button("Restart Service", async (_, _) => await RestartServiceAsync()));
         actions.Controls.Add(Button("Mở thư mục log", (_, _) => OpenDataFolder()));
         actions.Controls.Add(Button("Refresh", (_, _) => RefreshDynamicData()));
@@ -374,14 +377,19 @@ public sealed class MainForm : Form
     {
         await RunBusyAsync("Đang restart service...", async () =>
         {
-            if (!IsServiceInstalled())
+            if (!ServiceInstaller.IsServiceInstalled())
             {
-                const string message =
-                    "Service nền chưa được cài vào Windows. " +
-                    "Mở PowerShell bằng quyền Administrator rồi chạy .\\scripts\\install-service.ps1.";
-                AppendOutput(message);
-                MessageBox.Show(message, "Chưa cài service", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                RefreshOverview();
+                var confirm = MessageBox.Show(
+                    "Service nền chưa được cài vào Windows. Bạn có muốn cài ngay không?",
+                    "Chưa cài service",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                if (confirm == DialogResult.Yes)
+                {
+                    await InstallServiceAsync();
+                }
+
                 return;
             }
 
@@ -400,6 +408,43 @@ public sealed class MainForm : Form
             AppendOutput("Restart service thành công.");
             RefreshOverview();
         });
+    }
+
+    private async Task InstallServiceAsync()
+    {
+        if (ServiceInstaller.IsServiceInstalled())
+        {
+            MessageBox.Show("Service nền đã được cài rồi.", "Service", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            RefreshOverview();
+            return;
+        }
+
+        await RunBusyAsync("Đang cài service...", async () =>
+        {
+            await Task.Run(ServiceInstaller.LaunchElevatedInstall);
+            AppendOutput("Đã cài và khởi động service nền.");
+            RefreshOverview();
+        });
+    }
+
+    private async Task OfferServiceInstallIfMissingAsync()
+    {
+        if (_serviceInstallPromptShown || ServiceInstaller.IsServiceInstalled())
+        {
+            return;
+        }
+
+        _serviceInstallPromptShown = true;
+        var confirm = MessageBox.Show(
+            "Service nền chưa được cài. Cài service để app tự đồng bộ kể cả khi không mở giao diện?",
+            "Cài service nền",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question);
+
+        if (confirm == DialogResult.Yes)
+        {
+            await InstallServiceAsync();
+        }
     }
 
     private void OpenDataFolder()
@@ -583,23 +628,6 @@ public sealed class MainForm : Form
     {
         _errorsGrid.DataSource = null;
         _errorsGrid.DataSource = _store.GetRecentErrors().ToList();
-    }
-
-    private static bool IsServiceInstalled()
-    {
-        var services = ServiceController.GetServices();
-        try
-        {
-            return services.Any(service =>
-                string.Equals(service.ServiceName, AppPaths.ServiceName, StringComparison.OrdinalIgnoreCase));
-        }
-        finally
-        {
-            foreach (var service in services)
-            {
-                service.Dispose();
-            }
-        }
     }
 
     private static string GetServiceStatus()

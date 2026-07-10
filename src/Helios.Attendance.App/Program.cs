@@ -11,6 +11,18 @@ static class Program
     [STAThread]
     static async Task Main(string[] args)
     {
+        if (args.Any(arg => string.Equals(arg, "--install-service", StringComparison.OrdinalIgnoreCase)))
+        {
+            RunServiceInstall();
+            return;
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--uninstall-service", StringComparison.OrdinalIgnoreCase)))
+        {
+            RunServiceUninstall();
+            return;
+        }
+
         if (args.Any(arg => string.Equals(arg, "--service", StringComparison.OrdinalIgnoreCase)))
         {
             await RunServiceAsync(args);
@@ -39,5 +51,33 @@ static class Program
 
         using var host = builder.Build();
         await host.RunAsync();
+    }
+
+    private static void RunServiceInstall()
+    {
+        try
+        {
+            ServiceInstaller.InstallOrUpdateService();
+            Environment.Exit(0);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Không cài được service", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            Environment.Exit(1);
+        }
+    }
+
+    private static void RunServiceUninstall()
+    {
+        try
+        {
+            ServiceInstaller.UninstallService();
+            Environment.Exit(0);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Không gỡ được service", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            Environment.Exit(1);
+        }
     }
 }

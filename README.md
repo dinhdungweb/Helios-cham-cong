@@ -10,6 +10,7 @@ HeliosAttendanceSync.exe
 
 - Mở bình thường: chạy giao diện quản lý.
 - Windows Service gọi với `--service`: chạy nền tự động theo chu kỳ đã cấu hình trên UI.
+- Nếu service chưa cài, app sẽ hỏi cài service và tự bật UAC quyền Administrator.
 
 ## Chạy app giao diện
 
@@ -37,7 +38,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\publish-app.ps1
 
 ## Cài Windows Service
 
-Mở PowerShell bằng quyền Administrator:
+Trong app, bấm `Cài Service` ở tab Tổng quan. Windows sẽ hỏi quyền Administrator, chọn Yes.
+
+Hoặc mở PowerShell bằng quyền Administrator:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\install-service.ps1
