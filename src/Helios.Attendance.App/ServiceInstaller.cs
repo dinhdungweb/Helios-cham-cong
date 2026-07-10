@@ -8,7 +8,7 @@ namespace Helios.Attendance.App;
 
 public static class ServiceInstaller
 {
-    private const string DisplayName = "HELIOS Attendance Sync Service";
+    private const string DisplayName = "HOFFICE Attendance Sync Service";
 
     public static bool IsAdministrator()
     {

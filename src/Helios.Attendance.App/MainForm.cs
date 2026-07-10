@@ -98,7 +98,8 @@ public sealed class MainForm : Form
         _store.Initialize();
         _syncEngine = new SyncEngine(_store, _deviceClient);
 
-        Text = "HELIOS Attendance Sync";
+        Text = "HOFFICE";
+        Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? Icon;
         Font = new Font("Segoe UI", 9F);
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(1120, 720);
@@ -181,7 +182,7 @@ public sealed class MainForm : Form
         };
         actions.Controls.Add(Button("Đồng bộ ngay", async (_, _) => await SyncNowAsync()));
         actions.Controls.Add(Button("Test API", async (_, _) => await TestApiAsync()));
-        actions.Controls.Add(Button("Cài Service", async (_, _) => await InstallServiceAsync()));
+        actions.Controls.Add(Button("Cài/Cập nhật Service", async (_, _) => await InstallServiceAsync()));
         actions.Controls.Add(Button("Restart Service", async (_, _) => await RestartServiceAsync()));
         actions.Controls.Add(Button("Mở thư mục log", (_, _) => OpenDataFolder()));
         actions.Controls.Add(Button("Refresh", (_, _) => RefreshDynamicData()));
@@ -420,9 +421,17 @@ public sealed class MainForm : Form
     {
         if (ServiceInstaller.IsServiceInstalled())
         {
-            MessageBox.Show("Service nền đã được cài rồi.", "Service", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            RefreshOverview();
-            return;
+            var confirm = MessageBox.Show(
+                "Service nền đã được cài. Bạn có muốn cập nhật service sang file app hiện tại không?",
+                "Cập nhật service",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (confirm != DialogResult.Yes)
+            {
+                RefreshOverview();
+                return;
+            }
         }
 
         await RunBusyAsync("Đang cài service...", async () =>

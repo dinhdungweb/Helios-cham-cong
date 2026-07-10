@@ -11,6 +11,9 @@
 
   <PropertyGroup>
     <AssemblyName>HeliosAttendanceSync</AssemblyName>
+    <ApplicationIcon>Assets\hoffice.ico</ApplicationIcon>
+    <AssemblyTitle>HOFFICE</AssemblyTitle>
+    <Product>HOFFICE</Product>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
