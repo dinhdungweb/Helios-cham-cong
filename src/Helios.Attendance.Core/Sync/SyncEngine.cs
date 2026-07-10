@@ -6,8 +6,6 @@ namespace Helios.Attendance.Core.Sync;
 
 public sealed class SyncEngine
 {
-    private const int BatchSize = 200;
-
     private readonly AttendanceSyncStore _store;
     private readonly IAttendanceDeviceClient _deviceClient;
 
@@ -267,7 +265,7 @@ public sealed class SyncEngine
         CancellationToken cancellationToken,
         Action<string>? progress)
     {
-        var pending = _store.GetPendingLogsByDevice(device.DeviceId, BatchSize);
+        var pending = _store.GetPendingLogsByDevice(device.DeviceId, _store.GetPushBatchSize());
         if (pending.Count == 0)
         {
             return new PendingSendResult();

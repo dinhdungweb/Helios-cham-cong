@@ -88,6 +88,9 @@ public sealed class AttendanceSyncStore
         SeedSetting(connection, "api_token", string.Empty);
         SeedSetting(connection, "api_timeout_seconds", "30");
         SeedSetting(connection, "sync_interval_minutes", "5");
+        SeedSetting(connection, "poll_interval_minutes", "5");
+        SeedSetting(connection, "push_interval_minutes", "1");
+        SeedSetting(connection, "push_batch_size", "200");
         SeedSetting(connection, "read_back_days", "1");
         SeedSetting(connection, "auto_push_enabled", "false");
     }
@@ -149,7 +152,13 @@ public sealed class AttendanceSyncStore
         SaveSetting("api_timeout_seconds", Math.Max(1, settings.TimeoutSeconds).ToString(CultureInfo.InvariantCulture));
     }
 
-    public int GetSyncIntervalMinutes() => Math.Clamp(GetSettingInt("sync_interval_minutes", 5), 1, 1440);
+    public int GetSyncIntervalMinutes() => GetPollIntervalMinutes();
+
+    public int GetPollIntervalMinutes() => Math.Clamp(GetSettingInt("poll_interval_minutes", GetSettingInt("sync_interval_minutes", 5)), 1, 1440);
+
+    public int GetPushIntervalMinutes() => Math.Clamp(GetSettingInt("push_interval_minutes", 1), 1, 1440);
+
+    public int GetPushBatchSize() => Math.Clamp(GetSettingInt("push_batch_size", 200), 1, 5000);
 
     public int GetReadBackDays() => Math.Clamp(GetSettingInt("read_back_days", 1), 0, 365);
 
@@ -157,12 +166,26 @@ public sealed class AttendanceSyncStore
 
     public void SaveSyncSettings(int intervalMinutes, int readBackDays)
     {
-        SaveSyncSettings(intervalMinutes, readBackDays, GetAutoPushEnabled());
+        SaveSyncSettings(intervalMinutes, GetPushIntervalMinutes(), readBackDays, GetPushBatchSize(), GetAutoPushEnabled());
     }
 
     public void SaveSyncSettings(int intervalMinutes, int readBackDays, bool autoPushEnabled)
     {
-        SaveSetting("sync_interval_minutes", Math.Clamp(intervalMinutes, 1, 1440).ToString(CultureInfo.InvariantCulture));
+        SaveSyncSettings(intervalMinutes, GetPushIntervalMinutes(), readBackDays, GetPushBatchSize(), autoPushEnabled);
+    }
+
+    public void SaveSyncSettings(
+        int pollIntervalMinutes,
+        int pushIntervalMinutes,
+        int readBackDays,
+        int pushBatchSize,
+        bool autoPushEnabled)
+    {
+        var pollInterval = Math.Clamp(pollIntervalMinutes, 1, 1440);
+        SaveSetting("sync_interval_minutes", pollInterval.ToString(CultureInfo.InvariantCulture));
+        SaveSetting("poll_interval_minutes", pollInterval.ToString(CultureInfo.InvariantCulture));
+        SaveSetting("push_interval_minutes", Math.Clamp(pushIntervalMinutes, 1, 1440).ToString(CultureInfo.InvariantCulture));
+        SaveSetting("push_batch_size", Math.Clamp(pushBatchSize, 1, 5000).ToString(CultureInfo.InvariantCulture));
         SaveSetting("read_back_days", Math.Clamp(readBackDays, 0, 365).ToString(CultureInfo.InvariantCulture));
         SaveSetting("auto_push_enabled", autoPushEnabled ? "true" : "false");
     }

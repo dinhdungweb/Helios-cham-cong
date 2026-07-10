@@ -91,6 +91,18 @@ public sealed class MainForm : Form
         Maximum = 1440,
         Value = 5
     };
+    private readonly NumericUpDown _pushIntervalInput = new()
+    {
+        Minimum = 1,
+        Maximum = 1440,
+        Value = 1
+    };
+    private readonly NumericUpDown _pushBatchSizeInput = new()
+    {
+        Minimum = 1,
+        Maximum = 5000,
+        Value = 200
+    };
     private readonly NumericUpDown _readBackDaysInput = new()
     {
         Minimum = 0,
@@ -158,6 +170,8 @@ public sealed class MainForm : Form
             _passwordInput,
             _apiTimeoutInput,
             _syncIntervalInput,
+            _pushIntervalInput,
+            _pushBatchSizeInput,
             _readBackDaysInput,
             _searchFromDate,
             _searchToDate
@@ -571,14 +585,16 @@ public sealed class MainForm : Form
             Padding = new Padding(16),
             BackColor = ShellBackColor
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 360));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 500));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         var form = FormGrid();
         AddRow(form, "API URL", _apiUrlText);
         AddRow(form, "API Token", _apiTokenText);
         AddRow(form, "Timeout giây", _apiTimeoutInput);
-        AddRow(form, "Chu kỳ phút", _syncIntervalInput);
+        AddRow(form, "Tải log (phút/lần)", _syncIntervalInput);
+        AddRow(form, "Đẩy log (phút/lần)", _pushIntervalInput);
+        AddRow(form, "Số log đẩy/lần", _pushBatchSizeInput);
         AddRow(form, "Đọc lùi ngày", _readBackDaysInput);
         AddRow(form, "Tự động đẩy", _autoPushCheck);
 
@@ -1110,7 +1126,9 @@ public sealed class MainForm : Form
         _apiUrlText.Text = settings.ApiUrl;
         _apiTokenText.Text = settings.ApiToken;
         _apiTimeoutInput.Value = Math.Clamp(settings.TimeoutSeconds, 1, 300);
-        _syncIntervalInput.Value = Math.Clamp(_store.GetSyncIntervalMinutes(), 1, 1440);
+        _syncIntervalInput.Value = Math.Clamp(_store.GetPollIntervalMinutes(), 1, 1440);
+        _pushIntervalInput.Value = Math.Clamp(_store.GetPushIntervalMinutes(), 1, 1440);
+        _pushBatchSizeInput.Value = Math.Clamp(_store.GetPushBatchSize(), 1, 5000);
         _readBackDaysInput.Value = Math.Clamp(_store.GetReadBackDays(), 0, 365);
         _autoPushCheck.Checked = _store.GetAutoPushEnabled();
         _searchFromDate.Value = DateTime.Today.AddDays(-Math.Max(1, (int)_readBackDaysInput.Value));
@@ -1120,7 +1138,12 @@ public sealed class MainForm : Form
     private void SaveApiSettingsFromForm(bool showMessage = true)
     {
         _store.SaveApiSettings(ReadApiSettingsFromForm());
-        _store.SaveSyncSettings((int)_syncIntervalInput.Value, (int)_readBackDaysInput.Value, _autoPushCheck.Checked);
+        _store.SaveSyncSettings(
+            (int)_syncIntervalInput.Value,
+            (int)_pushIntervalInput.Value,
+            (int)_readBackDaysInput.Value,
+            (int)_pushBatchSizeInput.Value,
+            _autoPushCheck.Checked);
         RefreshOverview();
 
         if (showMessage)

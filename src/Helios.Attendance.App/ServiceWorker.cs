@@ -25,24 +25,34 @@ public sealed class ServiceWorker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _store.Initialize();
+        var nextPollAt = DateTimeOffset.MinValue;
+        var nextPushAt = DateTimeOffset.MinValue;
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
+                var now = DateTimeOffset.Now;
                 var engine = new SyncEngine(_store, _deviceClient);
-                var pollResult = await engine.PollDevicesAsync(
-                    stoppingToken,
-                    message => _logger.LogInformation("{Message}", message));
 
-                _logger.LogInformation(
-                    "Poll finished. Success={Success}, Read={Read}, Failed={Failed}, Pending={Pending}",
-                    pollResult.Success,
-                    pollResult.TotalRead,
-                    pollResult.TotalFailed,
-                    pollResult.PendingCreated);
+                if (now >= nextPollAt)
+                {
+                    var pollResult = await engine.PollDevicesAsync(
+                        stoppingToken,
+                        message => _logger.LogInformation("{Message}", message));
 
-                if (_store.GetAutoPushEnabled())
+                    _logger.LogInformation(
+                        "Poll finished. Success={Success}, Read={Read}, Failed={Failed}, Pending={Pending}",
+                        pollResult.Success,
+                        pollResult.TotalRead,
+                        pollResult.TotalFailed,
+                        pollResult.PendingCreated);
+
+                    nextPollAt = DateTimeOffset.Now.AddMinutes(_store.GetPollIntervalMinutes());
+                }
+
+                var autoPushEnabled = _store.GetAutoPushEnabled();
+                if (autoPushEnabled && now >= nextPushAt)
                 {
                     var pushResult = await engine.PushPendingAsync(
                         stoppingToken,
@@ -54,10 +64,12 @@ public sealed class ServiceWorker : BackgroundService
                         pushResult.TotalSent,
                         pushResult.TotalFailed,
                         pushResult.PendingCreated);
+
+                    nextPushAt = DateTimeOffset.Now.AddMinutes(_store.GetPushIntervalMinutes());
                 }
-                else
+                else if (!autoPushEnabled)
                 {
-                    _logger.LogInformation("Auto push is disabled. Pending logs will wait for manual push.");
+                    nextPushAt = DateTimeOffset.MinValue;
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -70,8 +82,24 @@ public sealed class ServiceWorker : BackgroundService
                 _store.InsertAppError("SERVICE_ERROR", string.Empty, ex.Message, ex.ToString());
             }
 
-            var interval = TimeSpan.FromMinutes(_store.GetSyncIntervalMinutes());
-            await Task.Delay(interval, stoppingToken);
+            var nextDueAt = _store.GetAutoPushEnabled()
+                ? Min(nextPollAt, nextPushAt)
+                : nextPollAt;
+            var delay = nextDueAt - DateTimeOffset.Now;
+            if (delay < TimeSpan.FromSeconds(5))
+            {
+                delay = TimeSpan.FromSeconds(5);
+            }
+
+            if (delay > TimeSpan.FromSeconds(30))
+            {
+                delay = TimeSpan.FromSeconds(30);
+            }
+
+            await Task.Delay(delay, stoppingToken);
         }
     }
+
+    private static DateTimeOffset Min(DateTimeOffset left, DateTimeOffset right) =>
+        left <= right ? left : right;
 }
