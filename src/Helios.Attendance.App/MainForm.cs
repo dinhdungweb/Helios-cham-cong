@@ -905,19 +905,9 @@ public sealed class MainForm : Form
                 return;
             }
 
-            await Task.Run(() =>
-            {
-                using var service = new ServiceController(AppPaths.ServiceName);
-                if (service.Status is not ServiceControllerStatus.Stopped and not ServiceControllerStatus.StopPending)
-                {
-                    service.Stop();
-                    service.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
-                }
-
-                service.Start();
-                service.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
-            });
-            AppendOutput("Restart service thành công.");
+            await Task.Run(ServiceInstaller.LaunchElevatedRestart);
+            await Task.Delay(1200);
+            AppendServiceStatus("Đã gửi lệnh restart service");
             RefreshOverview();
         });
     }
@@ -942,7 +932,8 @@ public sealed class MainForm : Form
         await RunBusyAsync("Đang cài service...", async () =>
         {
             await Task.Run(ServiceInstaller.LaunchElevatedInstall);
-            AppendOutput("Đã cài và khởi động service nền.");
+            await Task.Delay(1200);
+            AppendServiceStatus("Đã cài/cập nhật service nền");
             RefreshOverview();
         });
     }
@@ -975,6 +966,31 @@ public sealed class MainForm : Form
             FileName = AppPaths.DataDirectory,
             UseShellExecute = true
         });
+    }
+
+    private void AppendServiceStatus(string action)
+    {
+        try
+        {
+            var status = ServiceInstaller.GetServiceStatus();
+            if (status is null)
+            {
+                AppendOutput($"{action}, nhưng Windows chưa thấy service {AppPaths.ServiceName}.");
+                return;
+            }
+
+            if (status == ServiceControllerStatus.Running)
+            {
+                AppendOutput($"{action}. Service đang Running.");
+                return;
+            }
+
+            AppendOutput($"{action}, nhưng service hiện đang {status}. Nếu trạng thái vẫn là Stopped, hãy bấm Cài/Cập nhật Service lại.");
+        }
+        catch (Exception ex)
+        {
+            AppendOutput($"{action}, nhưng chưa đọc được trạng thái service: {ex.Message}");
+        }
     }
 
     private void SaveDevice()
@@ -1304,8 +1320,7 @@ public sealed class MainForm : Form
     {
         try
         {
-            using var service = new ServiceController(AppPaths.ServiceName);
-            return service.Status.ToString();
+            return ServiceInstaller.GetServiceStatus()?.ToString() ?? "Chưa cài service";
         }
         catch (InvalidOperationException)
         {

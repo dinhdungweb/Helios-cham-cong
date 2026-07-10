@@ -23,6 +23,12 @@ static class Program
             return;
         }
 
+        if (args.Any(arg => string.Equals(arg, "--restart-service", StringComparison.OrdinalIgnoreCase)))
+        {
+            RunServiceRestart();
+            return;
+        }
+
         if (args.Any(arg => string.Equals(arg, "--register-app", StringComparison.OrdinalIgnoreCase)))
         {
             RunAppRegister();
@@ -90,6 +96,20 @@ static class Program
         catch (Exception ex)
         {
             MessageBox.Show(ex.Message, "Không gỡ được service", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            Environment.Exit(1);
+        }
+    }
+
+    private static void RunServiceRestart()
+    {
+        try
+        {
+            ServiceInstaller.RestartService();
+            Environment.Exit(0);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Không restart được service", MessageBoxButtons.OK, MessageBoxIcon.Error);
             Environment.Exit(1);
         }
     }

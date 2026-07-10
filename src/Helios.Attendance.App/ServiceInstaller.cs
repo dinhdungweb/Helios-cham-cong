@@ -64,17 +64,56 @@ public static class ServiceInstaller
         DeleteServiceIfExists();
     }
 
+    public static void RestartService()
+    {
+        if (!IsAdministrator())
+        {
+            throw new InvalidOperationException("Cần quyền Administrator để restart Windows Service.");
+        }
+
+        if (!IsServiceInstalled())
+        {
+            throw new InvalidOperationException("Service nền chưa được cài vào Windows.");
+        }
+
+        using var service = new ServiceController(AppPaths.ServiceName);
+        if (service.Status is not ServiceControllerStatus.Stopped and not ServiceControllerStatus.StopPending)
+        {
+            service.Stop();
+            service.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
+        }
+
+        service.Start();
+        service.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
+    }
+
     public static void LaunchElevatedInstall()
     {
-        LaunchElevated("--install-service");
+        LaunchElevated("--install-service", "cài service");
     }
 
     public static void LaunchElevatedUninstall()
     {
-        LaunchElevated("--uninstall-service");
+        LaunchElevated("--uninstall-service", "gỡ service");
     }
 
-    private static void LaunchElevated(string arguments)
+    public static void LaunchElevatedRestart()
+    {
+        LaunchElevated("--restart-service", "restart service");
+    }
+
+    public static ServiceControllerStatus? GetServiceStatus()
+    {
+        if (!IsServiceInstalled())
+        {
+            return null;
+        }
+
+        using var service = new ServiceController(AppPaths.ServiceName);
+        return service.Status;
+    }
+
+    private static void LaunchElevated(string arguments, string actionName)
     {
         var executablePath = Application.ExecutablePath;
         try
@@ -89,13 +128,13 @@ public static class ServiceInstaller
 
             if (process is null)
             {
-                throw new InvalidOperationException("Không thể mở tiến trình cài service.");
+                throw new InvalidOperationException($"Không thể mở tiến trình {actionName}.");
             }
 
             process.WaitForExit();
             if (process.ExitCode != 0)
             {
-                throw new InvalidOperationException("Cài service không thành công hoặc đã bị hủy.");
+                throw new InvalidOperationException($"{actionName} không thành công hoặc đã bị hủy.");
             }
         }
         catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
