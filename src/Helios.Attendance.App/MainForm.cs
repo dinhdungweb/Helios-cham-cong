@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Globalization;
 using System.ServiceProcess;
 using Helios.Attendance.Core;
 using Helios.Attendance.Core.Data;
@@ -121,8 +120,8 @@ public sealed class MainForm : Form
     private readonly DataGridView _pendingAllGrid = Grid();
     private readonly DataGridView _errorsGrid = Grid();
     private readonly TextBox _searchEmployeeText = new();
-    private readonly TextBox _searchFromDate = new();
-    private readonly TextBox _searchToDate = new();
+    private readonly SearchDatePicker _searchFromDate = new();
+    private readonly SearchDatePicker _searchToDate = new();
 
     private bool _loadingDevices;
     private bool _serviceInstallPromptShown;
@@ -712,8 +711,8 @@ public sealed class MainForm : Form
 
         var searchButton = Button("Tìm kiếm", (_, _) => RefreshPending());
         searchButton.Width = 110;
-        searchButton.Height = 34;
-        searchButton.Margin = new Padding(0, 22, 8, 0);
+        searchButton.Height = 36;
+        searchButton.Margin = new Padding(0, 25, 8, 0);
         filters.Controls.Add(searchButton);
         filterContent.Controls.Add(filters, 0, 1);
 
@@ -1142,8 +1141,8 @@ public sealed class MainForm : Form
         _pushBatchSizeInput.Value = Math.Clamp(_store.GetPushBatchSize(), 1, 5000);
         _readBackDaysInput.Value = Math.Clamp(_store.GetReadBackDays(), 0, 365);
         _autoPushCheck.Checked = _store.GetAutoPushEnabled();
-        _searchFromDate.Text = DateTime.Today.AddDays(-Math.Max(1, (int)_readBackDaysInput.Value)).ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
-        _searchToDate.Text = DateTime.Today.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+        _searchFromDate.Value = DateTime.Today.AddDays(-Math.Max(1, (int)_readBackDaysInput.Value));
+        _searchToDate.Value = DateTime.Today;
     }
 
     private void SaveApiSettingsFromForm(bool showMessage = true)
@@ -1361,17 +1360,8 @@ public sealed class MainForm : Form
         from = DateTime.Today;
         to = DateTime.Today;
 
-        if (!TryParseSearchDate(_searchFromDate.Text, out from))
-        {
-            ShowError(new InvalidOperationException("Từ ngày không đúng định dạng. Hãy nhập dạng dd/MM/yyyy, ví dụ 30/06/2026."));
-            return false;
-        }
-
-        if (!TryParseSearchDate(_searchToDate.Text, out to))
-        {
-            ShowError(new InvalidOperationException("Đến ngày không đúng định dạng. Hãy nhập dạng dd/MM/yyyy, ví dụ 10/07/2026."));
-            return false;
-        }
+        from = _searchFromDate.Value.Date;
+        to = _searchToDate.Value.Date;
 
         from = from.Date;
         to = to.Date;
@@ -1382,14 +1372,6 @@ public sealed class MainForm : Form
         }
 
         return true;
-    }
-
-    private static bool TryParseSearchDate(string text, out DateTime date)
-    {
-        var value = text.Trim();
-        string[] formats = ["dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd", "yyyy/MM/dd"];
-        return DateTime.TryParseExact(value, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out date) ||
-            DateTime.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.None, out date);
     }
 
     private void RefreshErrors()
@@ -1702,6 +1684,16 @@ public sealed class MainForm : Form
 
         void LayoutControl()
         {
+            if (control is SearchDatePicker)
+            {
+                control.Bounds = new Rectangle(
+                    content.Padding.Left,
+                    0,
+                    Math.Max(24, content.ClientSize.Width - content.Padding.Horizontal),
+                    content.ClientSize.Height);
+                return;
+            }
+
             var preferredHeight = control.PreferredSize.Height;
             if (control is TextBox)
             {
@@ -1771,6 +1763,106 @@ public sealed class MainForm : Form
         Anchor = AnchorStyles.Left,
         Font = new Font("Segoe UI", 9F, FontStyle.Bold)
     };
+
+    private sealed class SearchDatePicker : UserControl
+    {
+        private readonly TextBox _textBox = new()
+        {
+            BorderStyle = BorderStyle.None,
+            ReadOnly = true,
+            BackColor = Color.White,
+            ForeColor = Color.FromArgb(28, 48, 54),
+            Font = new Font("Segoe UI", 9F)
+        };
+
+        private readonly Button _button = new()
+        {
+            Text = "v",
+            Width = 28,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.White,
+            ForeColor = Color.FromArgb(28, 48, 54),
+            TabStop = false
+        };
+
+        private DateTime _value = DateTime.Today;
+
+        public SearchDatePicker()
+        {
+            Height = 32;
+            MinimumSize = new Size(0, 32);
+            BackColor = Color.White;
+            TabStop = true;
+
+            _button.FlatAppearance.BorderSize = 0;
+            _button.Click += (_, _) => ShowCalendar();
+            _textBox.Click += (_, _) => ShowCalendar();
+            _textBox.DoubleClick += (_, _) => ShowCalendar();
+            Click += (_, _) => ShowCalendar();
+
+            Controls.Add(_textBox);
+            Controls.Add(_button);
+            UpdateText();
+        }
+
+        public DateTime Value
+        {
+            get => _value;
+            set
+            {
+                _value = value.Date;
+                UpdateText();
+            }
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            _button.Bounds = new Rectangle(Math.Max(0, Width - _button.Width), 0, _button.Width, Height);
+            var textHeight = Math.Min(20, Math.Max(18, Height - 4));
+            _textBox.Bounds = new Rectangle(0, Math.Max(2, (Height - textHeight) / 2), Math.Max(20, Width - _button.Width - 4), textHeight);
+        }
+
+        private void ShowCalendar()
+        {
+            var calendar = new MonthCalendar
+            {
+                MaxSelectionCount = 1,
+                SelectionStart = Value,
+                SelectionEnd = Value
+            };
+            var host = new ToolStripControlHost(calendar)
+            {
+                Margin = Padding.Empty,
+                Padding = Padding.Empty,
+                AutoSize = false,
+                Size = calendar.Size
+            };
+            var dropDown = new ToolStripDropDown
+            {
+                Padding = Padding.Empty
+            };
+
+            calendar.DateSelected += (_, args) =>
+            {
+                Value = args.Start;
+                dropDown.Close();
+            };
+            dropDown.Closed += (_, _) =>
+            {
+                dropDown.Dispose();
+                host.Dispose();
+                calendar.Dispose();
+            };
+            dropDown.Items.Add(host);
+            dropDown.Show(this, new Point(0, Height));
+        }
+
+        private void UpdateText()
+        {
+            _textBox.Text = _value.ToString("dd/MM/yyyy");
+        }
+    }
 
     private sealed class PendingLogRow
     {
