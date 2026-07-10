@@ -1594,7 +1594,7 @@ public sealed class MainForm : Form
     private static void AddRow(TableLayoutPanel panel, string label, Control control)
     {
         var row = panel.RowCount++;
-        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, control is CheckBox ? 38 : 48));
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, control is CheckBox ? 34 : 42));
 
         panel.Controls.Add(new Label
         {
@@ -1622,9 +1622,9 @@ public sealed class MainForm : Form
         var frame = new Panel
         {
             Dock = DockStyle.Fill,
-            Height = 38,
-            MinimumSize = new Size(0, 38),
-            Margin = new Padding(0, 3, 0, 3),
+            Height = 32,
+            MinimumSize = new Size(0, 32),
+            Margin = new Padding(0, 2, 0, 2),
             BackColor = Color.White,
             TabStop = false
         };
