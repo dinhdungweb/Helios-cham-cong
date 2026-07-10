@@ -324,20 +324,21 @@ public sealed class MainForm : Form
 
     private static Control MetricCard(string title, Label value)
     {
-        var card = CardPanel(new Padding(14), new Padding(0, 0, 12, 0));
+        var card = CardPanel(new Padding(12), new Padding(0, 0, 12, 0));
+        card.MinimumSize = new Size(0, 88);
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
             RowCount = 2
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         value.AutoSize = false;
         value.Dock = DockStyle.Fill;
         value.Margin = new Padding(0);
-        value.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
+        value.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
         value.TextAlign = ContentAlignment.MiddleLeft;
 
         layout.Controls.Add(new Label
@@ -409,7 +410,7 @@ public sealed class MainForm : Form
             Padding = new Padding(16),
             BackColor = ShellBackColor
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 82));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 106));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
