@@ -1730,13 +1730,14 @@ public sealed class MainForm : Form
                 height);
         }
 
+        frame.Resize += (_, _) => LayoutControl();
         content.Resize += (_, _) => LayoutControl();
         control.Enter += (_, _) => border.BackColor = PrimaryBlue;
         control.Leave += (_, _) => border.BackColor = FormInputBorderColor;
         content.Controls.Add(control);
         border.Controls.Add(content);
-        LayoutControl();
         frame.Controls.Add(border);
+        LayoutControl();
         return frame;
     }
 
@@ -1878,26 +1879,11 @@ public sealed class MainForm : Form
 
             CloseCalendar();
 
-            var calendar = new MonthCalendar
+            var popup = new CalendarPopup(Value, selectedDate =>
             {
-                MaxSelectionCount = 1,
-                SelectionStart = Value,
-                SelectionEnd = Value
-            };
-
-            var popup = new Form
-            {
-                BackColor = CardBorderColor,
-                FormBorderStyle = FormBorderStyle.None,
-                ShowInTaskbar = false,
-                StartPosition = FormStartPosition.Manual
-            };
-
-            calendar.DateSelected += (_, args) =>
-            {
-                Value = args.Start;
+                Value = selectedDate;
                 CloseCalendar();
-            };
+            });
 
             popup.Deactivate += (_, _) => CloseCalendar();
             popup.FormClosed += (_, _) =>
@@ -1907,9 +1893,6 @@ public sealed class MainForm : Form
                     _calendarPopup = null;
                 }
             };
-            popup.Controls.Add(calendar);
-            popup.ClientSize = calendar.Size;
-
             var location = PointToScreen(new Point(0, Height + 1));
             var screen = Screen.FromControl(this).WorkingArea;
             if (location.X + popup.Width > screen.Right)
@@ -1955,6 +1938,155 @@ public sealed class MainForm : Form
         private void UpdateText()
         {
             _textBox.Text = _value.ToString("dd/MM/yyyy");
+        }
+    }
+
+    private sealed class CalendarPopup : Form
+    {
+        private static readonly string[] WeekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        private readonly Action<DateTime> _selectDate;
+        private readonly Label _titleLabel = new()
+        {
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(28, 48, 54)
+        };
+        private readonly TableLayoutPanel _calendarGrid = new()
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 7,
+            RowCount = 7,
+            BackColor = Color.White,
+            Margin = new Padding(0),
+            Padding = new Padding(0)
+        };
+        private readonly DateTime _selectedDate;
+        private DateTime _displayMonth;
+
+        public CalendarPopup(DateTime selectedDate, Action<DateTime> selectDate)
+        {
+            _selectedDate = selectedDate.Date;
+            _displayMonth = new DateTime(selectedDate.Year, selectedDate.Month, 1);
+            _selectDate = selectDate;
+
+            AutoScaleMode = AutoScaleMode.None;
+            BackColor = FormInputBorderColor;
+            ClientSize = new Size(280, 238);
+            FormBorderStyle = FormBorderStyle.None;
+            Padding = new Padding(1);
+            ShowInTaskbar = false;
+            StartPosition = FormStartPosition.Manual;
+            TopMost = true;
+
+            var body = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                ColumnCount = 1,
+                RowCount = 2,
+                Padding = new Padding(8, 6, 8, 8)
+            };
+            body.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
+            body.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+            var header = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 3,
+                Margin = new Padding(0)
+            };
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 34));
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 34));
+            header.Controls.Add(CalendarNavButton("<", (_, _) => MoveMonth(-1)), 0, 0);
+            header.Controls.Add(_titleLabel, 1, 0);
+            header.Controls.Add(CalendarNavButton(">", (_, _) => MoveMonth(1)), 2, 0);
+
+            for (var i = 0; i < 7; i++)
+            {
+                _calendarGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 7f));
+            }
+
+            _calendarGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
+            for (var i = 1; i < 7; i++)
+            {
+                _calendarGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 100f / 6f));
+            }
+
+            body.Controls.Add(header, 0, 0);
+            body.Controls.Add(_calendarGrid, 0, 1);
+            Controls.Add(body);
+            RenderCalendar();
+        }
+
+        private static Button CalendarNavButton(string text, EventHandler onClick)
+        {
+            var button = new Button
+            {
+                Text = text,
+                Dock = DockStyle.Fill,
+                FlatStyle = FlatStyle.Flat,
+                Margin = new Padding(0),
+                BackColor = Color.White,
+                ForeColor = Color.FromArgb(28, 48, 54),
+                TabStop = false
+            };
+            button.FlatAppearance.BorderSize = 0;
+            button.Click += onClick;
+            return button;
+        }
+
+        private void MoveMonth(int offset)
+        {
+            _displayMonth = _displayMonth.AddMonths(offset);
+            RenderCalendar();
+        }
+
+        private void RenderCalendar()
+        {
+            _calendarGrid.SuspendLayout();
+            _calendarGrid.Controls.Clear();
+            _titleLabel.Text = _displayMonth.ToString("M yyyy");
+
+            for (var column = 0; column < WeekDays.Length; column++)
+            {
+                _calendarGrid.Controls.Add(new Label
+                {
+                    Text = WeekDays[column],
+                    Dock = DockStyle.Fill,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    ForeColor = MutedTextColor,
+                    Font = new Font("Segoe UI", 8.5F, FontStyle.Bold)
+                }, column, 0);
+            }
+
+            var start = _displayMonth.AddDays(-(int)_displayMonth.DayOfWeek);
+            for (var index = 0; index < 42; index++)
+            {
+                var date = start.AddDays(index);
+                var isCurrentMonth = date.Month == _displayMonth.Month;
+                var isSelected = date.Date == _selectedDate;
+                var button = new Button
+                {
+                    Text = date.Day.ToString(),
+                    Dock = DockStyle.Fill,
+                    FlatStyle = FlatStyle.Flat,
+                    Margin = new Padding(1),
+                    BackColor = isSelected ? PrimaryBlue : Color.White,
+                    ForeColor = isSelected
+                        ? Color.White
+                        : isCurrentMonth ? Color.FromArgb(28, 48, 54) : Color.FromArgb(150, 160, 164),
+                    Font = new Font("Segoe UI", 8.5F),
+                    TabStop = false
+                };
+                button.FlatAppearance.BorderColor = date.Date == DateTime.Today ? FormInputBorderColor : Color.White;
+                button.FlatAppearance.BorderSize = date.Date == DateTime.Today && !isSelected ? 1 : 0;
+                button.Click += (_, _) => _selectDate(date.Date);
+                _calendarGrid.Controls.Add(button, index % 7, (index / 7) + 1);
+            }
+
+            _calendarGrid.ResumeLayout();
         }
     }
 
