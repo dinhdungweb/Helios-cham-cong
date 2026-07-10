@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.ServiceProcess;
 using Helios.Attendance.Core;
 using Helios.Attendance.Core.Data;
@@ -117,10 +118,11 @@ public sealed class MainForm : Form
 
     private readonly DataGridView _historyGrid = Grid();
     private readonly DataGridView _pendingGrid = Grid();
+    private readonly DataGridView _pendingAllGrid = Grid();
     private readonly DataGridView _errorsGrid = Grid();
     private readonly TextBox _searchEmployeeText = new();
-    private readonly HofficeDatePicker _searchFromDate = new();
-    private readonly HofficeDatePicker _searchToDate = new();
+    private readonly TextBox _searchFromDate = new();
+    private readonly TextBox _searchToDate = new();
 
     private bool _loadingDevices;
     private bool _serviceInstallPromptShown;
@@ -205,6 +207,7 @@ public sealed class MainForm : Form
 
         _tabs.TabPages.Add(BuildOverviewTab());
         _tabs.TabPages.Add(BuildDevicesTab());
+        _tabs.TabPages.Add(BuildSearchTab());
         _tabs.TabPages.Add(BuildPendingTab());
         _tabs.TabPages.Add(BuildHistoryTab());
         _tabs.TabPages.Add(BuildApiTab());
@@ -325,9 +328,10 @@ public sealed class MainForm : Form
         nav.Controls.Add(SideNavButton("Tổng quan", 0));
         nav.Controls.Add(SideNavButton("Thiết bị", 1));
         nav.Controls.Add(SideNavButton("Tìm kiếm log", 2));
-        nav.Controls.Add(SideNavButton("Lịch sử đồng bộ", 3));
-        nav.Controls.Add(SideNavButton("Cài đặt API", 4));
-        nav.Controls.Add(SideNavButton("Hỗ trợ", 5));
+        nav.Controls.Add(SideNavButton("Pending", 3));
+        nav.Controls.Add(SideNavButton("Lịch sử đồng bộ", 4));
+        nav.Controls.Add(SideNavButton("Cài đặt API", 5));
+        nav.Controls.Add(SideNavButton("Hỗ trợ", 6));
 
         var footer = new Label
         {
@@ -640,7 +644,7 @@ public sealed class MainForm : Form
         return tab;
     }
 
-    private TabPage BuildPendingTab()
+    private TabPage BuildSearchTab()
     {
         var tab = new TabPage("Tìm kiếm log") { BackColor = ShellBackColor };
         var layout = new TableLayoutPanel
@@ -727,6 +731,17 @@ public sealed class MainForm : Form
         layout.Controls.Add(filterCard, 0, 0);
         layout.Controls.Add(gridCard, 0, 1);
         tab.Controls.Add(layout);
+        return tab;
+    }
+
+    private TabPage BuildPendingTab()
+    {
+        var tab = new TabPage("Pending") { BackColor = ShellBackColor };
+        tab.Controls.Add(BuildGridPanel(
+            _pendingAllGrid,
+            Button("Đẩy dữ liệu", async (_, _) => await PushNowAsync()),
+            Button("Xóa pending", (_, _) => ClearPendingLogs()),
+            Button("Làm mới", (_, _) => RefreshPendingList())));
         return tab;
     }
 
@@ -1117,6 +1132,7 @@ public sealed class MainForm : Form
 
         _store.ClearAllPendingLogs();
         RefreshPending();
+        RefreshPendingList();
         RefreshOverview();
     }
 
@@ -1131,8 +1147,8 @@ public sealed class MainForm : Form
         _pushBatchSizeInput.Value = Math.Clamp(_store.GetPushBatchSize(), 1, 5000);
         _readBackDaysInput.Value = Math.Clamp(_store.GetReadBackDays(), 0, 365);
         _autoPushCheck.Checked = _store.GetAutoPushEnabled();
-        _searchFromDate.Value = DateTime.Today.AddDays(-Math.Max(1, (int)_readBackDaysInput.Value));
-        _searchToDate.Value = DateTime.Today;
+        _searchFromDate.Text = DateTime.Today.AddDays(-Math.Max(1, (int)_readBackDaysInput.Value)).ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+        _searchToDate.Text = DateTime.Today.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
     }
 
     private void SaveApiSettingsFromForm(bool showMessage = true)
@@ -1196,6 +1212,7 @@ public sealed class MainForm : Form
         RefreshDevices();
         RefreshHistory();
         RefreshPending();
+        RefreshPendingList();
         RefreshErrors();
     }
 
@@ -1317,18 +1334,67 @@ public sealed class MainForm : Form
     private void RefreshPending()
     {
         var employee = _searchEmployeeText.Text.Trim();
-        var from = _searchFromDate.Value.Date;
-        var toExclusive = _searchToDate.Value.Date.AddDays(1);
+        if (!TryReadSearchDates(out var from, out var to))
+        {
+            return;
+        }
+
+        var toExclusive = to.Date.AddDays(1);
 
         _pendingGrid.DataSource = null;
-        _pendingGrid.DataSource = _store.GetPendingLogs()
+        _pendingGrid.DataSource = _store.GetPendingLogs(5000)
             .Where(log => string.IsNullOrWhiteSpace(employee) ||
                 log.EmployeeCode.Contains(employee, StringComparison.OrdinalIgnoreCase))
             .Where(log => !DateTime.TryParse(log.PunchTime, out var punchTime) ||
                 (punchTime >= from && punchTime < toExclusive))
             .Select(PendingLogRow.From)
             .ToList();
-        FormatPendingGrid();
+        FormatPendingGrid(_pendingGrid);
+    }
+
+    private void RefreshPendingList()
+    {
+        _pendingAllGrid.DataSource = null;
+        _pendingAllGrid.DataSource = _store.GetPendingLogs(5000)
+            .Select(PendingLogRow.From)
+            .ToList();
+        FormatPendingGrid(_pendingAllGrid);
+    }
+
+    private bool TryReadSearchDates(out DateTime from, out DateTime to)
+    {
+        from = DateTime.Today;
+        to = DateTime.Today;
+
+        if (!TryParseSearchDate(_searchFromDate.Text, out from))
+        {
+            ShowError(new InvalidOperationException("Từ ngày không đúng định dạng. Hãy nhập dạng dd/MM/yyyy, ví dụ 30/06/2026."));
+            return false;
+        }
+
+        if (!TryParseSearchDate(_searchToDate.Text, out to))
+        {
+            ShowError(new InvalidOperationException("Đến ngày không đúng định dạng. Hãy nhập dạng dd/MM/yyyy, ví dụ 10/07/2026."));
+            return false;
+        }
+
+        from = from.Date;
+        to = to.Date;
+        if (to < from)
+        {
+            ShowError(new InvalidOperationException("Đến ngày phải lớn hơn hoặc bằng Từ ngày."));
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool TryParseSearchDate(string text, out DateTime date)
+    {
+        var value = text.Trim();
+        string[] formats = ["dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd", "yyyy/MM/dd"];
+        return DateTime.TryParseExact(value, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out date) ||
+            DateTime.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.None, out date);
     }
 
     private void RefreshErrors()
@@ -1353,18 +1419,18 @@ public sealed class MainForm : Form
         SetGridColumn(_historyGrid, nameof(SyncLogRow.Note), "Ghi chú", 300);
     }
 
-    private void FormatPendingGrid()
+    private void FormatPendingGrid(DataGridView grid)
     {
-        SetGridColumn(_pendingGrid, nameof(PendingLogRow.Id), "#", 48);
-        SetGridColumn(_pendingGrid, nameof(PendingLogRow.DeviceId), "Máy", 80);
-        SetGridColumn(_pendingGrid, nameof(PendingLogRow.StoreCode), "Chi nhánh", 110);
-        SetGridColumn(_pendingGrid, nameof(PendingLogRow.EmployeeCode), "Mã nhân viên", 110);
-        SetGridColumn(_pendingGrid, nameof(PendingLogRow.PunchTime), "Thời gian chấm", 150);
-        SetGridColumn(_pendingGrid, nameof(PendingLogRow.VerifyText), "Kiểu chấm", 150);
-        SetGridColumn(_pendingGrid, nameof(PendingLogRow.StateText), "Vào/Ra", 120);
-        SetGridColumn(_pendingGrid, nameof(PendingLogRow.RetryCount), "Lần gửi", 70);
-        SetGridColumn(_pendingGrid, nameof(PendingLogRow.LastError), "Lỗi gửi", 260);
-        SetGridColumn(_pendingGrid, nameof(PendingLogRow.UpdatedAt), "Cập nhật", 145);
+        SetGridColumn(grid, nameof(PendingLogRow.Id), "#", 48);
+        SetGridColumn(grid, nameof(PendingLogRow.DeviceId), "Máy", 80);
+        SetGridColumn(grid, nameof(PendingLogRow.StoreCode), "Chi nhánh", 110);
+        SetGridColumn(grid, nameof(PendingLogRow.EmployeeCode), "Mã nhân viên", 110);
+        SetGridColumn(grid, nameof(PendingLogRow.PunchTime), "Thời gian chấm", 150);
+        SetGridColumn(grid, nameof(PendingLogRow.VerifyText), "Kiểu chấm", 150);
+        SetGridColumn(grid, nameof(PendingLogRow.StateText), "Vào/Ra", 120);
+        SetGridColumn(grid, nameof(PendingLogRow.RetryCount), "Lần gửi", 70);
+        SetGridColumn(grid, nameof(PendingLogRow.LastError), "Lỗi gửi", 260);
+        SetGridColumn(grid, nameof(PendingLogRow.UpdatedAt), "Cập nhật", 145);
     }
 
     private void FormatErrorsGrid()
@@ -1573,17 +1639,7 @@ public sealed class MainForm : Form
 
     private static Control InputFrame(Control control)
     {
-        var isDatePicker = control is HofficeDatePicker;
-        if (isDatePicker)
-        {
-            control.Margin = new Padding(0);
-            control.Dock = DockStyle.None;
-            control.BackColor = Color.White;
-        }
-        else
-        {
-            StyleInputControl(control);
-        }
+        StyleInputControl(control);
 
         var frame = new Panel
         {
@@ -1591,23 +1647,13 @@ public sealed class MainForm : Form
             Height = 32,
             MinimumSize = new Size(0, 32),
             Margin = new Padding(0, 2, 0, 2),
-            Padding = isDatePicker ? new Padding(1) : new Padding(8, 0, 8, 0),
+            Padding = new Padding(8, 0, 8, 0),
             BackColor = Color.White,
             TabStop = false
         };
 
         void LayoutControl()
         {
-            if (isDatePicker)
-            {
-                control.Bounds = new Rectangle(
-                    frame.Padding.Left,
-                    frame.Padding.Top,
-                    Math.Max(24, frame.ClientSize.Width - frame.Padding.Horizontal),
-                    Math.Max(24, frame.ClientSize.Height - frame.Padding.Vertical));
-                return;
-            }
-
             var innerWidth = Math.Max(24, frame.ClientSize.Width - frame.Padding.Left - frame.Padding.Right);
             var preferredHeight = control.PreferredSize.Height;
             if (control is TextBox)
@@ -1681,110 +1727,6 @@ public sealed class MainForm : Form
         Anchor = AnchorStyles.Left,
         Font = new Font("Segoe UI", 9F, FontStyle.Bold)
     };
-
-    private sealed class HofficeDatePicker : UserControl
-    {
-        private readonly TextBox _textBox = new()
-        {
-            BorderStyle = BorderStyle.None,
-            ReadOnly = true,
-            BackColor = Color.White,
-            Font = new Font("Segoe UI", 9F),
-            ForeColor = Color.FromArgb(28, 48, 54)
-        };
-
-        private readonly Button _dropButton = new()
-        {
-            Text = "v",
-            Width = 28,
-            Dock = DockStyle.Right,
-            FlatStyle = FlatStyle.Flat,
-            BackColor = Color.White,
-            ForeColor = Color.FromArgb(28, 48, 54),
-            TabStop = false
-        };
-
-        private DateTime _value = DateTime.Today;
-
-        public HofficeDatePicker()
-        {
-            Height = 32;
-            MinimumSize = new Size(0, 32);
-            BackColor = Color.White;
-            Padding = new Padding(8, 0, 0, 0);
-            TabStop = true;
-
-            _dropButton.FlatAppearance.BorderSize = 0;
-            _dropButton.Click += (_, _) => ShowCalendar();
-            _textBox.Click += (_, _) => Focus();
-            _textBox.DoubleClick += (_, _) => ShowCalendar();
-            Click += (_, _) => Focus();
-            GotFocus += (_, _) => Invalidate();
-            LostFocus += (_, _) => Invalidate();
-
-            Controls.Add(_textBox);
-            Controls.Add(_dropButton);
-            UpdateText();
-        }
-
-        public DateTime Value
-        {
-            get => _value;
-            set
-            {
-                _value = value.Date;
-                UpdateText();
-            }
-        }
-
-        protected override void OnResize(EventArgs e)
-        {
-            base.OnResize(e);
-            var textWidth = Math.Max(20, ClientSize.Width - Padding.Left - _dropButton.Width - 4);
-            var textHeight = Math.Min(20, Math.Max(18, ClientSize.Height - 4));
-            _textBox.Bounds = new Rectangle(Padding.Left, Math.Max(2, (ClientSize.Height - textHeight) / 2), textWidth, textHeight);
-        }
-
-        private void ShowCalendar()
-        {
-            var calendar = new MonthCalendar
-            {
-                MaxSelectionCount = 1,
-                SelectionStart = Value,
-                SelectionEnd = Value
-            };
-            var host = new ToolStripControlHost(calendar)
-            {
-                Margin = System.Windows.Forms.Padding.Empty,
-                Padding = System.Windows.Forms.Padding.Empty,
-                AutoSize = false,
-                Size = calendar.Size
-            };
-            var dropDown = new ToolStripDropDown
-            {
-                Padding = System.Windows.Forms.Padding.Empty
-            };
-
-            calendar.DateSelected += (_, args) =>
-            {
-                Value = args.Start;
-                dropDown.Close();
-            };
-            dropDown.Closed += (_, _) =>
-            {
-                dropDown.Dispose();
-                host.Dispose();
-                calendar.Dispose();
-            };
-            dropDown.Items.Add(host);
-            dropDown.Show(this, new Point(0, Height));
-        }
-
-        private void UpdateText()
-        {
-            _textBox.Text = _value.ToString("dd/MM/yyyy");
-        }
-    }
 
     private sealed class PendingLogRow
     {
