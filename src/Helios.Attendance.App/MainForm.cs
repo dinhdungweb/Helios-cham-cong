@@ -539,12 +539,7 @@ public sealed class MainForm : Form
         AddRow(form, "Password", _passwordInput);
         AddRow(form, "Trạng thái", _deviceActiveCheck);
 
-        var buttons = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            AutoSize = true,
-            Padding = new Padding(0, 10, 0, 0)
-        };
+        var buttons = ActionRow(new Padding(0, 10, 0, 0));
         buttons.Controls.Add(Button("Test kết nối", async (_, _) => await TestDeviceAsync()));
         buttons.Controls.Add(Button("Cài driver", async (_, _) => await InstallDeviceDriverAsync()));
         buttons.Controls.Add(Button("Lưu", (_, _) => SaveDevice()));
@@ -560,15 +555,7 @@ public sealed class MainForm : Form
         sideLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         sideLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         sideLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        sideLayout.Controls.Add(new Label
-        {
-            Text = "Cấu hình máy",
-            Dock = DockStyle.Top,
-            Height = 30,
-            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(28, 48, 54),
-            TextAlign = ContentAlignment.MiddleLeft
-        }, 0, 0);
+        sideLayout.Controls.Add(SectionTitle("Cấu hình máy"), 0, 0);
         sideLayout.Controls.Add(form, 0, 1);
         sideLayout.Controls.Add(buttons, 0, 2);
 
@@ -604,12 +591,7 @@ public sealed class MainForm : Form
         AddRow(form, "Đọc lùi ngày", _readBackDaysInput);
         AddRow(form, "Tự động đẩy", _autoPushCheck);
 
-        var actions = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            AutoSize = true,
-            Padding = new Padding(0, 8, 0, 0)
-        };
+        var actions = ActionRow(new Padding(0, 8, 0, 0));
         actions.Controls.Add(Button("Test API", async (_, _) => await TestApiAsync()));
         actions.Controls.Add(Button("Lưu cấu hình", (_, _) => SaveApiSettingsFromForm()));
 
@@ -620,15 +602,7 @@ public sealed class MainForm : Form
             ColumnCount = 1,
             RowCount = 3
         };
-        content.Controls.Add(new Label
-        {
-            Text = "Cấu hình kết nối API",
-            Dock = DockStyle.Top,
-            Height = 30,
-            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(28, 48, 54),
-            TextAlign = ContentAlignment.MiddleLeft
-        }, 0, 0);
+        content.Controls.Add(SectionTitle("Cấu hình kết nối API"), 0, 0);
         content.Controls.Add(form, 0, 1);
         content.Controls.Add(actions, 0, 2);
 
@@ -667,15 +641,7 @@ public sealed class MainForm : Form
             ColumnCount = 1,
             RowCount = 2
         };
-        filterContent.Controls.Add(new Label
-        {
-            Text = "Tìm kiếm dữ liệu chấm công",
-            Dock = DockStyle.Top,
-            Height = 28,
-            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(28, 48, 54),
-            TextAlign = ContentAlignment.MiddleLeft
-        }, 0, 0);
+        filterContent.Controls.Add(SectionTitle("Tìm kiếm dữ liệu chấm công"), 0, 0);
 
         var filters = new FlowLayoutPanel
         {
@@ -763,22 +729,9 @@ public sealed class MainForm : Form
             ColumnCount = 1,
             RowCount = 2
         };
-        actionContent.Controls.Add(new Label
-        {
-            Text = "Công cụ vận hành",
-            Dock = DockStyle.Top,
-            Height = 28,
-            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(28, 48, 54),
-            TextAlign = ContentAlignment.MiddleLeft
-        }, 0, 0);
+        actionContent.Controls.Add(SectionTitle("Công cụ vận hành"), 0, 0);
 
-        var actions = new FlowLayoutPanel
-        {
-            AutoSize = true,
-            Dock = DockStyle.Fill,
-            Padding = new Padding(0, 8, 0, 0)
-        };
+        var actions = ActionRow(new Padding(0, 8, 0, 0));
         actions.Controls.Add(Button("Lấy log ngay", async (_, _) => await PollNowAsync()));
         actions.Controls.Add(Button("Đẩy dữ liệu", async (_, _) => await PushNowAsync()));
         actions.Controls.Add(Button("Cài driver", async (_, _) => await InstallDeviceDriverAsync()));
@@ -813,18 +766,15 @@ public sealed class MainForm : Form
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-        var actions = new FlowLayoutPanel
-        {
-            AutoSize = true,
-            Dock = DockStyle.Fill,
-            Padding = new Padding(0, 0, 0, 8)
-        };
+        var actions = ActionRow(new Padding(0));
         actions.Controls.AddRange(buttons);
+        var actionCard = CardPanel(new Padding(14), new Padding(0, 0, 0, 12));
+        actionCard.Controls.Add(actions);
 
         var gridCard = CardPanel(new Padding(1));
         gridCard.Controls.Add(grid);
 
-        layout.Controls.Add(actions, 0, 0);
+        layout.Controls.Add(actionCard, 0, 0);
         layout.Controls.Add(gridCard, 0, 1);
         return layout;
     }
@@ -1527,11 +1477,32 @@ public sealed class MainForm : Form
             BackColor = Color.White,
             ForeColor = Color.FromArgb(28, 48, 54)
         };
-        button.FlatAppearance.BorderColor = CardBorderColor;
+        button.FlatAppearance.BorderColor = FormInputBorderColor;
         button.FlatAppearance.BorderSize = 1;
+        button.FlatAppearance.MouseOverBackColor = FormInputBackColor;
+        button.FlatAppearance.MouseDownBackColor = Color.FromArgb(235, 244, 244);
         button.Click += onClick;
         return button;
     }
+
+    private static Label SectionTitle(string text) => new()
+    {
+        Text = text,
+        Dock = DockStyle.Top,
+        Height = 30,
+        Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+        ForeColor = Color.FromArgb(28, 48, 54),
+        TextAlign = ContentAlignment.MiddleLeft
+    };
+
+    private static FlowLayoutPanel ActionRow(Padding padding) => new()
+    {
+        AutoSize = true,
+        Dock = DockStyle.Fill,
+        Padding = padding,
+        Margin = new Padding(0),
+        WrapContents = true
+    };
 
     private static DataGridView Grid() => new()
     {
