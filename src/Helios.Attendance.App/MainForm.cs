@@ -10,11 +10,15 @@ namespace Helios.Attendance.App;
 
 public sealed class MainForm : Form
 {
+    private static readonly Color StatusReadyColor = Color.SeaGreen;
+    private static readonly Color StatusBusyColor = Color.DarkOrange;
+    private static readonly Color StatusErrorColor = Color.Firebrick;
+
     private readonly AttendanceSyncStore _store = new();
     private readonly IAttendanceDeviceClient _deviceClient = new TcpAttendanceDeviceClient();
     private readonly SyncEngine _syncEngine;
 
-    private readonly ToolStripStatusLabel _statusText = new("Sẵn sàng");
+    private readonly ToolStripStatusLabel _statusText = new();
     private readonly TabControl _tabs = new() { Dock = DockStyle.Fill };
 
     private readonly Label _serviceStatusValue = ValueLabel();
@@ -108,6 +112,8 @@ public sealed class MainForm : Form
 
     private void InitializeLayout()
     {
+        SetStatus("Sẵn sàng", StatusReadyColor);
+
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -652,13 +658,13 @@ public sealed class MainForm : Form
         try
         {
             UseWaitCursor = true;
-            _statusText.Text = status;
+            SetStatus(status, StatusBusyColor);
             await action();
-            _statusText.Text = "Sẵn sàng";
+            SetStatus("Sẵn sàng", StatusReadyColor);
         }
         catch (Exception ex)
         {
-            _statusText.Text = "Có lỗi";
+            SetStatus("Có lỗi", StatusErrorColor);
             AppendOutput($"Lỗi: {ex.Message}");
             ShowError(ex);
         }
@@ -666,6 +672,29 @@ public sealed class MainForm : Form
         {
             UseWaitCursor = false;
         }
+    }
+
+    private void SetStatus(string text, Color color)
+    {
+        _statusText.Text = text;
+        _statusText.Image = CreateStatusDot(color);
+        _statusText.ImageAlign = ContentAlignment.MiddleLeft;
+        _statusText.TextImageRelation = TextImageRelation.ImageBeforeText;
+    }
+
+    private static Bitmap CreateStatusDot(Color color)
+    {
+        const int size = 12;
+        var bitmap = new Bitmap(size, size);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.Clear(Color.Transparent);
+        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+        using var brush = new SolidBrush(color);
+        using var border = new Pen(ControlPaint.Dark(color), 1);
+        graphics.FillEllipse(brush, 2, 2, size - 5, size - 5);
+        graphics.DrawEllipse(border, 2, 2, size - 5, size - 5);
+        return bitmap;
     }
 
     private void AppendOutput(string message)
