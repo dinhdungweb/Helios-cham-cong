@@ -684,13 +684,13 @@ public sealed class MainForm : Form
             var field = new TableLayoutPanel
             {
                 Width = width,
-                Height = 58,
+                Height = 64,
                 ColumnCount = 1,
                 RowCount = 2,
                 Margin = new Padding(0, 0, 12, 0)
             };
             field.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
-            field.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+            field.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
             field.Controls.Add(new Label
             {
                 Text = label,
@@ -1573,28 +1573,41 @@ public sealed class MainForm : Form
 
     private static Control InputFrame(Control control)
     {
-        if (control is HofficeDatePicker datePicker)
+        var isDatePicker = control is HofficeDatePicker;
+        if (isDatePicker)
         {
-            datePicker.Dock = DockStyle.Fill;
-            datePicker.Margin = new Padding(0, 3, 0, 5);
-            return datePicker;
+            control.Margin = new Padding(0);
+            control.Dock = DockStyle.None;
+            control.BackColor = Color.White;
         }
-
-        StyleInputControl(control);
+        else
+        {
+            StyleInputControl(control);
+        }
 
         var frame = new Panel
         {
             Dock = DockStyle.Fill,
             Height = 32,
             MinimumSize = new Size(0, 32),
-            Margin = new Padding(0, 3, 0, 5),
-            Padding = new Padding(8, 0, 8, 0),
+            Margin = new Padding(0, 2, 0, 2),
+            Padding = isDatePicker ? new Padding(1) : new Padding(8, 0, 8, 0),
             BackColor = Color.White,
             TabStop = false
         };
 
         void LayoutControl()
         {
+            if (isDatePicker)
+            {
+                control.Bounds = new Rectangle(
+                    frame.Padding.Left,
+                    frame.Padding.Top,
+                    Math.Max(24, frame.ClientSize.Width - frame.Padding.Horizontal),
+                    Math.Max(24, frame.ClientSize.Height - frame.Padding.Vertical));
+                return;
+            }
+
             var innerWidth = Math.Max(24, frame.ClientSize.Width - frame.Padding.Left - frame.Padding.Right);
             var preferredHeight = control.PreferredSize.Height;
             if (control is TextBox)
@@ -1730,16 +1743,6 @@ public sealed class MainForm : Form
             var textWidth = Math.Max(20, ClientSize.Width - Padding.Left - _dropButton.Width - 4);
             var textHeight = Math.Min(20, Math.Max(18, ClientSize.Height - 4));
             _textBox.Bounds = new Rectangle(Padding.Left, Math.Max(2, (ClientSize.Height - textHeight) / 2), textWidth, textHeight);
-        }
-
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            base.OnPaint(e);
-            var rect = ClientRectangle;
-            rect.Width -= 1;
-            rect.Height -= 1;
-            using var pen = new Pen(ContainsFocus ? PrimaryBlue : CardBorderColor);
-            e.Graphics.DrawRectangle(pen, rect);
         }
 
         private void ShowCalendar()
