@@ -374,6 +374,17 @@ public sealed class MainForm : Form
     {
         await RunBusyAsync("Đang restart service...", async () =>
         {
+            if (!IsServiceInstalled())
+            {
+                const string message =
+                    "Service nền chưa được cài vào Windows. " +
+                    "Mở PowerShell bằng quyền Administrator rồi chạy .\\scripts\\install-service.ps1.";
+                AppendOutput(message);
+                MessageBox.Show(message, "Chưa cài service", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                RefreshOverview();
+                return;
+            }
+
             await Task.Run(() =>
             {
                 using var service = new ServiceController(AppPaths.ServiceName);
@@ -572,6 +583,23 @@ public sealed class MainForm : Form
     {
         _errorsGrid.DataSource = null;
         _errorsGrid.DataSource = _store.GetRecentErrors().ToList();
+    }
+
+    private static bool IsServiceInstalled()
+    {
+        var services = ServiceController.GetServices();
+        try
+        {
+            return services.Any(service =>
+                string.Equals(service.ServiceName, AppPaths.ServiceName, StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            foreach (var service in services)
+            {
+                service.Dispose();
+            }
+        }
     }
 
     private static string GetServiceStatus()

@@ -7,6 +7,9 @@ $appProject = Join-Path $root "src\Helios.Attendance.App\Helios.Attendance.App.c
 $appOut = Join-Path $root "publish\app"
 
 & $dotnet publish $appProject -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o $appOut
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
 
 Write-Host "App published to $appOut"
 Write-Host "Use HeliosAttendanceSync.exe normally for UI, or with --service for Windows Service mode."

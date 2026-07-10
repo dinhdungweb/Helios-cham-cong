@@ -11,6 +11,9 @@ $serviceName = "HeliosAttendanceSyncService"
 $displayName = "HELIOS Attendance Sync Service"
 
 & $dotnet publish $appProject -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o $appOut
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
 
 $existing = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
 if ($existing) {
