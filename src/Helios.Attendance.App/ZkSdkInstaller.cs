@@ -93,7 +93,7 @@ public static class ZkSdkInstaller
             process.WaitForExit();
             if (process.ExitCode != 0)
             {
-                return Fail($"Cài SDK ZK không thành công. Mã lỗi: {process.ExitCode}.");
+                return Fail(GetRegsvr32ErrorMessage(process.ExitCode, dllPath));
             }
 
             return IsRegistered()
@@ -122,6 +122,19 @@ public static class ZkSdkInstaller
         return Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.System),
             "regsvr32.exe");
+    }
+
+    private static string GetRegsvr32ErrorMessage(int exitCode, string dllPath)
+    {
+        return exitCode switch
+        {
+            1 => "Cài SDK ZK không thành công: tham số cài driver không hợp lệ.",
+            2 => "Cài SDK ZK không thành công: Windows không khởi tạo được COM/OLE.",
+            3 => "Cài SDK ZK không thành công: Windows không load được zkemkeeper.dll. Thường là do thiếu các file DLL đi kèm trong bộ SDK, chọn nhầm DLL 32/64-bit, hoặc file driver bị chặn. Hãy copy cả thư mục SDK/driver chứ không chỉ mỗi zkemkeeper.dll, rồi chọn lại file trong thư mục đó.",
+            4 => "Cài SDK ZK không thành công: file DLL không có hàm đăng ký COM DllRegisterServer. Có thể chọn nhầm file DLL.",
+            5 => "Cài SDK ZK không thành công: DllRegisterServer trả lỗi. Hãy chạy app bằng quyền Administrator hoặc dùng bộ SDK khác đúng phiên bản.",
+            _ => $"Cài SDK ZK không thành công. Mã lỗi: {exitCode}. File: {dllPath}"
+        };
     }
 
     private static IEnumerable<string> GetDirectCandidatePaths()
