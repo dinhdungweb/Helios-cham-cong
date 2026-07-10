@@ -25,6 +25,11 @@ foreach ($shortcutPath in @($startShortcut, $desktopShortcut)) {
     $shortcut.Save()
 }
 
+& $appPath --register-app
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
+
 Write-Host "Created shortcuts:"
 Write-Host " - $startShortcut"
 Write-Host " - $desktopShortcut"

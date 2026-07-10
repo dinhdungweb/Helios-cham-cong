@@ -23,6 +23,18 @@ static class Program
             return;
         }
 
+        if (args.Any(arg => string.Equals(arg, "--register-app", StringComparison.OrdinalIgnoreCase)))
+        {
+            RunAppRegister();
+            return;
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--uninstall-app", StringComparison.OrdinalIgnoreCase)))
+        {
+            RunAppUninstall();
+            return;
+        }
+
         if (args.Any(arg => string.Equals(arg, "--service", StringComparison.OrdinalIgnoreCase)))
         {
             await RunServiceAsync(args);
@@ -35,6 +47,7 @@ static class Program
     private static void RunGui()
     {
         ApplicationConfiguration.Initialize();
+        AppRegistration.RegisterForCurrentUser();
         Application.Run(new MainForm());
     }
 
@@ -77,6 +90,39 @@ static class Program
         catch (Exception ex)
         {
             MessageBox.Show(ex.Message, "Không gỡ được service", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            Environment.Exit(1);
+        }
+    }
+
+    private static void RunAppRegister()
+    {
+        try
+        {
+            AppRegistration.RegisterForCurrentUser();
+            Environment.Exit(0);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Không đăng ký được app", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            Environment.Exit(1);
+        }
+    }
+
+    private static void RunAppUninstall()
+    {
+        try
+        {
+            AppRegistration.UninstallForCurrentUser();
+            MessageBox.Show(
+                "Đã gỡ HOFFICE khỏi Start Menu và Installed Apps. Nếu muốn xóa hẳn file app, hãy xóa thư mục chứa app sau khi đóng cửa sổ này.",
+                "Đã gỡ HOFFICE",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            Environment.Exit(0);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Không gỡ được app", MessageBoxButtons.OK, MessageBoxIcon.Error);
             Environment.Exit(1);
         }
     }
