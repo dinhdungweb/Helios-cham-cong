@@ -470,28 +470,28 @@ public sealed class MainForm : Form
             return;
         }
 
-        AppendOutput("Đang tìm nhanh zkemkeeper.dll...");
-        var dllPath = await Task.Run(() => ZkSdkInstaller.FindSdkDll(TimeSpan.FromSeconds(3)));
+        AppendOutput("Đang tìm nhanh SDK ZK (sdk.zip hoặc zkemkeeper.dll)...");
+        var dllPath = await Task.Run(() => ZkSdkInstaller.FindSdkSource(TimeSpan.FromSeconds(3)));
         if (string.IsNullOrWhiteSpace(dllPath))
         {
-            AppendOutput("Không tìm thấy zkemkeeper.dll tự động, mở cửa sổ chọn file.");
+            AppendOutput("Không tìm thấy SDK ZK tự động, mở cửa sổ chọn file.");
             MessageBox.Show(
-                "Không tìm thấy driver gốc tự động. Hãy chọn file zkemkeeper.dll trong thư mục cài phần mềm/SDK của nhà cung cấp, ví dụ DTC Software, ZK hoặc ZKTeco. Không nên chọn file trong thư mục của app trung gian như 1Office.",
+                "Không tìm thấy driver gốc tự động. Hãy chọn sdk.zip hoặc zkemkeeper.dll trong thư mục cài phần mềm/SDK của nhà cung cấp, ví dụ DTC Software, ZK hoặc ZKTeco.",
                 "Chọn driver",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
 
             using var dialog = new OpenFileDialog
             {
-                Title = "Chọn file zkemkeeper.dll",
-                Filter = "ZK SDK (zkemkeeper.dll)|zkemkeeper.dll|DLL files (*.dll)|*.dll|All files (*.*)|*.*",
+                Title = "Chọn sdk.zip hoặc zkemkeeper.dll",
+                Filter = "ZK SDK (sdk.zip; zkemkeeper.dll)|sdk.zip;zkemkeeper.dll|ZIP files (*.zip)|*.zip|DLL files (*.dll)|*.dll|All files (*.*)|*.*",
                 CheckFileExists = true,
                 Multiselect = false
             };
 
             if (dialog.ShowDialog(this) != DialogResult.OK)
             {
-                AppendOutput("Chưa chọn file zkemkeeper.dll.");
+                AppendOutput("Chưa chọn SDK ZK.");
                 return;
             }
 

@@ -10,3 +10,4 @@ publish/
 TestResults/
 src/Helios.Attendance.App/Drivers/**/*.dll
 src/Helios.Attendance.App/Drivers/**/*.ocx
+src/Helios.Attendance.App/Drivers/**/*.zip

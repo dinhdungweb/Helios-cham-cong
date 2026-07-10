@@ -1,5 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO.Compression;
+using System.Text;
 
 namespace Helios.Attendance.App;
 
@@ -14,6 +16,7 @@ public static class ZkSdkInstaller
 {
     public const string ProgId = "zkemkeeper.CZKEM";
     private const string DllFileName = "zkemkeeper.dll";
+    private const string SdkZipFileName = "sdk.zip";
     private const int MaxVisitedDirectories = 700;
 
     private static readonly string[] SearchKeywords =
@@ -32,9 +35,9 @@ public static class ZkSdkInstaller
 
     public static bool IsRegistered() => Type.GetTypeFromProgID(ProgId) is not null;
 
-    public static string? FindSdkDll() => FindSdkDll(TimeSpan.FromSeconds(3));
+    public static string? FindSdkSource() => FindSdkSource(TimeSpan.FromSeconds(3));
 
-    public static string? FindSdkDll(TimeSpan maxDuration)
+    public static string? FindSdkSource(TimeSpan maxDuration)
     {
         var stopwatch = Stopwatch.StartNew();
         foreach (var path in GetDirectCandidatePaths())
@@ -62,7 +65,62 @@ public static class ZkSdkInstaller
         return null;
     }
 
-    public static ZkSdkInstallResult RegisterSdk(string dllPath)
+    public static string? FindSdkDll() => FindSdkSource();
+
+    public static string? FindSdkDll(TimeSpan maxDuration) => FindSdkSource(maxDuration);
+
+    public static ZkSdkInstallResult RegisterSdk(string sdkPath)
+    {
+        if (IsRegistered())
+        {
+            return Success("SDK ZK đã được cài sẵn.");
+        }
+
+        if (string.IsNullOrWhiteSpace(sdkPath))
+        {
+            return Fail("Không tìm thấy file SDK ZK.");
+        }
+
+        try
+        {
+            if (Directory.Exists(sdkPath))
+            {
+                return RegisterSdkFromDirectory(sdkPath, sdkPath);
+            }
+
+            if (!File.Exists(sdkPath))
+            {
+                return Fail("Không tìm thấy file SDK ZK.");
+            }
+
+            if (string.Equals(Path.GetFileName(sdkPath), SdkZipFileName, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(Path.GetExtension(sdkPath), ".zip", StringComparison.OrdinalIgnoreCase))
+            {
+                return RegisterSdkFromZip(sdkPath);
+            }
+
+            var siblingZip = FindSiblingSdkZip(sdkPath);
+            if (!string.IsNullOrWhiteSpace(siblingZip))
+            {
+                return RegisterSdkFromZip(siblingZip);
+            }
+
+            var sdkDirectory = Path.GetDirectoryName(sdkPath);
+            return string.IsNullOrWhiteSpace(sdkDirectory)
+                ? Fail("Không xác định được thư mục chứa SDK ZK.")
+                : RegisterSdkFromDirectory(sdkDirectory, sdkPath);
+        }
+        catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
+        {
+            return Fail("Bạn đã hủy yêu cầu cấp quyền Administrator.");
+        }
+        catch (Exception ex)
+        {
+            return Fail(ex.Message);
+        }
+    }
+
+    private static ZkSdkInstallResult RegisterSingleDllSdk(string dllPath)
     {
         if (IsRegistered())
         {
@@ -114,6 +172,179 @@ public static class ZkSdkInstaller
         }
     }
 
+    private static ZkSdkInstallResult RegisterSdkFromZip(string zipPath)
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), $"hoffice-zk-sdk-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(tempDirectory);
+            using var archive = ZipFile.OpenRead(zipPath);
+            var prefix = FindZkSdk32BitPrefix(archive);
+            if (prefix is null)
+            {
+                return Fail("File SDK zip không có bộ ZK 32-bit chứa zkemkeeper.dll.");
+            }
+
+            foreach (var entry in archive.Entries.Where(entry =>
+                entry.FullName.Replace('\\', '/').StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+                entry.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)))
+            {
+                var fileName = Path.GetFileName(entry.FullName);
+                if (string.IsNullOrWhiteSpace(fileName))
+                {
+                    continue;
+                }
+
+                entry.ExtractToFile(Path.Combine(tempDirectory, fileName), overwrite: true);
+            }
+
+            if (!File.Exists(Path.Combine(tempDirectory, DllFileName)))
+            {
+                return Fail("Giải nén SDK zip xong nhưng không thấy zkemkeeper.dll 32-bit.");
+            }
+
+            return RegisterSdkFromDirectory(tempDirectory, zipPath);
+        }
+        catch (InvalidDataException)
+        {
+            return Fail("File SDK zip không hợp lệ hoặc bị hỏng.");
+        }
+        finally
+        {
+            TryDeleteDirectory(tempDirectory);
+        }
+    }
+
+    private static ZkSdkInstallResult RegisterSdkFromDirectory(string sourceDirectory, string displaySource)
+    {
+        if (!File.Exists(Path.Combine(sourceDirectory, DllFileName)))
+        {
+            return Fail("Thư mục SDK không có zkemkeeper.dll.");
+        }
+
+        var targetDirectory = GetSdkInstallDirectory();
+        if (string.IsNullOrWhiteSpace(targetDirectory) || !Directory.Exists(targetDirectory))
+        {
+            return Fail("Không xác định được thư mục Windows để cài SDK ZK.");
+        }
+
+        var result = RunSdkInstallScript(sourceDirectory, targetDirectory);
+        if (!result.Success)
+        {
+            return result;
+        }
+
+        return IsRegistered()
+            ? Success("Đã cài SDK ZK thành công. Hãy bấm Test kết nối lại.")
+            : Fail($"Đã copy và đăng ký SDK từ {displaySource} nhưng Windows vẫn chưa nhận {ProgId}.");
+    }
+
+    private static ZkSdkInstallResult RunSdkInstallScript(string sourceDirectory, string targetDirectory)
+    {
+        var scriptPath = Path.Combine(Path.GetTempPath(), $"hoffice-zk-sdk-install-{Guid.NewGuid():N}.cmd");
+        var logPath = Path.Combine(Path.GetTempPath(), $"hoffice-zk-sdk-install-{Guid.NewGuid():N}.log");
+        var targetDll = Path.Combine(targetDirectory, DllFileName);
+        var script = string.Join(Environment.NewLine, new[]
+        {
+            "@echo off",
+            "setlocal",
+            $"copy /Y \"{Path.Combine(sourceDirectory, "*.dll")}\" \"{targetDirectory}\\\" > \"{logPath}\" 2>&1",
+            "if errorlevel 1 exit /b 10",
+            $"\"{GetRegsvr32Path()}\" /s \"{targetDll}\"",
+            "exit /b %errorlevel%"
+        });
+
+        try
+        {
+            File.WriteAllText(scriptPath, script, Encoding.ASCII);
+            using var process = Process.Start(new ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                Arguments = $"/c \"{scriptPath}\"",
+                UseShellExecute = true,
+                Verb = ServiceInstaller.IsAdministrator() ? string.Empty : "runas",
+                WorkingDirectory = sourceDirectory,
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+
+            if (process is null)
+            {
+                return Fail("Không mở được trình cài SDK ZK.");
+            }
+
+            process.WaitForExit();
+            if (process.ExitCode == 10)
+            {
+                return Fail("Không copy được bộ SDK ZK vào thư mục Windows. Hãy chạy app bằng quyền Administrator.");
+            }
+
+            if (process.ExitCode != 0)
+            {
+                return Fail(GetRegsvr32ErrorMessage(process.ExitCode, targetDll));
+            }
+
+            return Success("Đã copy bộ DLL phụ và đăng ký zkemkeeper.dll.");
+        }
+        finally
+        {
+            TryDeleteFile(scriptPath);
+            TryDeleteFile(logPath);
+        }
+    }
+
+    private static string GetSdkInstallDirectory()
+    {
+        return Environment.Is64BitOperatingSystem
+            ? Environment.GetFolderPath(Environment.SpecialFolder.SystemX86)
+            : Environment.GetFolderPath(Environment.SpecialFolder.System);
+    }
+
+    private static string? FindZkSdk32BitPrefix(ZipArchive archive)
+    {
+        var candidates = archive.Entries
+            .Where(entry => string.Equals(Path.GetFileName(entry.FullName), DllFileName, StringComparison.OrdinalIgnoreCase))
+            .Select(entry => entry.FullName.Replace('\\', '/'))
+            .ToList();
+
+        var selected = candidates.FirstOrDefault(LooksLike32BitSdkPath) ??
+            candidates.FirstOrDefault(entry => !entry.StartsWith("64", StringComparison.OrdinalIgnoreCase));
+        if (selected is null)
+        {
+            return null;
+        }
+
+        var index = selected.LastIndexOf('/');
+        return index < 0 ? string.Empty : selected[..(index + 1)];
+    }
+
+    private static bool LooksLike32BitSdkPath(string path) =>
+        path.Contains("32", StringComparison.OrdinalIgnoreCase) ||
+        path.Contains("x86", StringComparison.OrdinalIgnoreCase);
+
+    private static string? FindSiblingSdkZip(string sdkPath)
+    {
+        var directory = Path.GetDirectoryName(sdkPath);
+        while (!string.IsNullOrWhiteSpace(directory))
+        {
+            var zip = Path.Combine(directory, SdkZipFileName);
+            if (File.Exists(zip))
+            {
+                return zip;
+            }
+
+            var parent = Directory.GetParent(directory);
+            if (parent is null)
+            {
+                return null;
+            }
+
+            directory = parent.FullName;
+        }
+
+        return null;
+    }
+
     private static string GetRegsvr32Path()
     {
         var systemX86 = Environment.GetFolderPath(Environment.SpecialFolder.SystemX86);
@@ -134,7 +365,7 @@ public static class ZkSdkInstaller
         {
             1 => "Cài SDK ZK không thành công: tham số cài driver không hợp lệ.",
             2 => "Cài SDK ZK không thành công: Windows không khởi tạo được COM/OLE.",
-            3 => "Cài SDK ZK không thành công: Windows không load được zkemkeeper.dll. Nếu máy đã cài DTC Software/ZK/ZKTeco, hãy chọn đúng zkemkeeper.dll nằm trong thư mục cài phần mềm hoặc thư mục SDK của nhà cung cấp đó. Không chọn file trong app trung gian như 1Office. Nếu vẫn lỗi, bộ driver có thể thiếu file phụ thuộc hoặc không phải zkemkeeper COM.",
+            3 => "Cài SDK ZK không thành công: Windows không load được zkemkeeper.dll. Hãy chọn sdk.zip hoặc thư mục SDK có đủ các DLL phụ như plcommpro.dll, plcomms.dll, zkemsdk.dll. Nếu vẫn lỗi, bộ driver có thể thiếu file phụ thuộc hoặc không phải zkemkeeper COM.",
             4 => "Cài SDK ZK không thành công: file DLL không có hàm đăng ký COM DllRegisterServer. Có thể chọn nhầm file DLL.",
             5 => "Cài SDK ZK không thành công: DllRegisterServer trả lỗi. Hãy chạy app bằng quyền Administrator hoặc dùng bộ SDK khác đúng phiên bản.",
             _ => $"Cài SDK ZK không thành công. Mã lỗi: {exitCode}. File: {dllPath}"
@@ -144,25 +375,45 @@ public static class ZkSdkInstaller
     private static IEnumerable<string> GetDirectCandidatePaths()
     {
         var baseDirectory = AppContext.BaseDirectory;
+        yield return Path.Combine(baseDirectory, SdkZipFileName);
         yield return Path.Combine(baseDirectory, DllFileName);
+        yield return Path.Combine(baseDirectory, "drivers", SdkZipFileName);
         yield return Path.Combine(baseDirectory, "drivers", DllFileName);
+        yield return Path.Combine(baseDirectory, "drivers", "zk", SdkZipFileName);
         yield return Path.Combine(baseDirectory, "drivers", "zk", DllFileName);
+        yield return Path.Combine(baseDirectory, "drivers", "zk", "32bit", "32bit", DllFileName);
+        yield return Path.Combine(baseDirectory, "drivers", "zkteco", SdkZipFileName);
         yield return Path.Combine(baseDirectory, "drivers", "zkteco", DllFileName);
+        yield return Path.Combine(baseDirectory, "drivers", "dtc", SdkZipFileName);
         yield return Path.Combine(baseDirectory, "drivers", "dtc", DllFileName);
+        yield return Path.Combine(baseDirectory, "drivers", "ronald-jack", SdkZipFileName);
         yield return Path.Combine(baseDirectory, "drivers", "ronald-jack", DllFileName);
+        yield return Path.Combine(baseDirectory, "sdk", SdkZipFileName);
         yield return Path.Combine(baseDirectory, "sdk", DllFileName);
+        yield return Path.Combine(baseDirectory, "sdk", "zk", SdkZipFileName);
         yield return Path.Combine(baseDirectory, "sdk", "zk", DllFileName);
+        yield return Path.Combine(baseDirectory, "sdk", "dtc", SdkZipFileName);
         yield return Path.Combine(baseDirectory, "sdk", "dtc", DllFileName);
 
         var currentDirectory = Environment.CurrentDirectory;
+        yield return Path.Combine(currentDirectory, SdkZipFileName);
         yield return Path.Combine(currentDirectory, DllFileName);
+        yield return Path.Combine(currentDirectory, "drivers", SdkZipFileName);
         yield return Path.Combine(currentDirectory, "drivers", DllFileName);
+        yield return Path.Combine(currentDirectory, "drivers", "zk", SdkZipFileName);
         yield return Path.Combine(currentDirectory, "drivers", "zk", DllFileName);
+        yield return Path.Combine(currentDirectory, "drivers", "zk", "32bit", "32bit", DllFileName);
+        yield return Path.Combine(currentDirectory, "drivers", "zkteco", SdkZipFileName);
         yield return Path.Combine(currentDirectory, "drivers", "zkteco", DllFileName);
+        yield return Path.Combine(currentDirectory, "drivers", "dtc", SdkZipFileName);
         yield return Path.Combine(currentDirectory, "drivers", "dtc", DllFileName);
+        yield return Path.Combine(currentDirectory, "drivers", "ronald-jack", SdkZipFileName);
         yield return Path.Combine(currentDirectory, "drivers", "ronald-jack", DllFileName);
+        yield return Path.Combine(currentDirectory, "sdk", SdkZipFileName);
         yield return Path.Combine(currentDirectory, "sdk", DllFileName);
+        yield return Path.Combine(currentDirectory, "sdk", "zk", SdkZipFileName);
         yield return Path.Combine(currentDirectory, "sdk", "zk", DllFileName);
+        yield return Path.Combine(currentDirectory, "sdk", "dtc", SdkZipFileName);
         yield return Path.Combine(currentDirectory, "sdk", "dtc", DllFileName);
     }
 
@@ -251,7 +502,8 @@ public static class ZkSdkInstaller
     {
         try
         {
-            return Directory.EnumerateFiles(directory, DllFileName, SearchOption.TopDirectoryOnly)
+            return Directory.EnumerateFiles(directory, SdkZipFileName, SearchOption.TopDirectoryOnly)
+                .Concat(Directory.EnumerateFiles(directory, DllFileName, SearchOption.TopDirectoryOnly))
                 .FirstOrDefault();
         }
         catch
@@ -299,6 +551,36 @@ public static class ZkSdkInstaller
         }
 
         return false;
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
+            // Best-effort cleanup.
+        }
+    }
+
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive: true);
+            }
+        }
+        catch
+        {
+            // Best-effort cleanup.
+        }
     }
 
     private static ZkSdkInstallResult Success(string message) => new()
