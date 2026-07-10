@@ -1,17 +1,19 @@
-namespace Helios.Attendance.Service;
-
 using Helios.Attendance.Core.Data;
 using Helios.Attendance.Core.Devices;
 using Helios.Attendance.Core.Sync;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
-public class Worker : BackgroundService
+namespace Helios.Attendance.App;
+
+public sealed class ServiceWorker : BackgroundService
 {
-    private readonly ILogger<Worker> _logger;
+    private readonly ILogger<ServiceWorker> _logger;
     private readonly AttendanceSyncStore _store;
     private readonly IAttendanceDeviceClient _deviceClient;
 
-    public Worker(
-        ILogger<Worker> logger,
+    public ServiceWorker(
+        ILogger<ServiceWorker> logger,
         AttendanceSyncStore store,
         IAttendanceDeviceClient deviceClient)
     {

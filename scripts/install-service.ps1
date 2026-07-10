@@ -4,13 +4,13 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $localDotnet = Join-Path $root ".dotnet\dotnet.exe"
 $dotnet = if (Test-Path $localDotnet) { $localDotnet } else { "dotnet" }
-$serviceProject = Join-Path $root "src\Helios.Attendance.Service\Helios.Attendance.Service.csproj"
-$serviceOut = Join-Path $root "publish\service"
-$serviceExe = Join-Path $serviceOut "Helios.Attendance.Service.exe"
+$appProject = Join-Path $root "src\Helios.Attendance.App\Helios.Attendance.App.csproj"
+$appOut = Join-Path $root "publish\app"
+$serviceExe = Join-Path $appOut "HeliosAttendanceSync.exe"
 $serviceName = "HeliosAttendanceSyncService"
 $displayName = "HELIOS Attendance Sync Service"
 
-& $dotnet publish $serviceProject -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o $serviceOut
+& $dotnet publish $appProject -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o $appOut
 
 $existing = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
 if ($existing) {
@@ -23,7 +23,7 @@ if ($existing) {
     Start-Sleep -Seconds 2
 }
 
-New-Service -Name $serviceName -BinaryPathName "`"$serviceExe`"" -DisplayName $displayName -StartupType Automatic
+New-Service -Name $serviceName -BinaryPathName "`"$serviceExe`" --service" -DisplayName $displayName -StartupType Automatic
 Start-Service -Name $serviceName
 
-Write-Host "$displayName installed and started."
+Write-Host "$displayName installed and started from $serviceExe --service."

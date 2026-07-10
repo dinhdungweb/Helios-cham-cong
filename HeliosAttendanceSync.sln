@@ -9,8 +9,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Helios.Attendance.Core", "s
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Helios.Attendance.App", "src\Helios.Attendance.App\Helios.Attendance.App.csproj", "{7312CF09-76CA-43F0-8822-585E83BFB5B4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Helios.Attendance.Service", "src\Helios.Attendance.Service\Helios.Attendance.Service.csproj", "{23B963A9-BE86-4321-BED8-AA144F0EF038}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -28,14 +26,9 @@ Global
 		{7312CF09-76CA-43F0-8822-585E83BFB5B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7312CF09-76CA-43F0-8822-585E83BFB5B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7312CF09-76CA-43F0-8822-585E83BFB5B4}.Release|Any CPU.Build.0 = Release|Any CPU
-		{23B963A9-BE86-4321-BED8-AA144F0EF038}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{23B963A9-BE86-4321-BED8-AA144F0EF038}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{23B963A9-BE86-4321-BED8-AA144F0EF038}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{23B963A9-BE86-4321-BED8-AA144F0EF038}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{C7B3F199-0243-42DE-B46C-DBA454BC49B0} = {841CC822-D22A-49D4-8589-789C19F552B7}
 		{7312CF09-76CA-43F0-8822-585E83BFB5B4} = {841CC822-D22A-49D4-8589-789C19F552B7}
-		{23B963A9-BE86-4321-BED8-AA144F0EF038} = {841CC822-D22A-49D4-8589-789C19F552B7}
 	EndGlobalSection
 EndGlobal

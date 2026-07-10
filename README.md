@@ -2,6 +2,15 @@
 
 App Windows MVP theo `PLAN_Tich_Hop_May_Cham_Cong_Web.md`.
 
+Project dùng một executable duy nhất:
+
+```text
+HeliosAttendanceSync.exe
+```
+
+- Mở bình thường: chạy giao diện quản lý.
+- Windows Service gọi với `--service`: chạy nền tự động theo chu kỳ đã cấu hình trên UI.
+
 ## Chạy app giao diện
 
 Nếu máy chưa có .NET SDK, cài local trong thư mục project:
@@ -20,7 +29,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run-app.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 ```
 
-## Publish app và service
+## Publish app hợp nhất
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\publish-app.ps1
@@ -35,6 +44,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install-service.ps1
 ```
 
 Service name: `HeliosAttendanceSyncService`.
+
+Script sẽ đăng ký:
+
+```text
+publish\app\HeliosAttendanceSync.exe --service
+```
 
 ## Dữ liệu local
 
